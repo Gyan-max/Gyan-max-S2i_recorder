@@ -6,9 +6,8 @@ import ProgressPage from './pages/ProgressPage';
 import AdminLogin from './pages/AdminLogin';
 import AdminPanel from './pages/AdminPanel';
 import { SpeakerResponse, SpeakerRosterItem } from './types';
+import { API_BASE } from './config';
 import './styles/responsive.css';
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export default function AppRouter() {
   // App State

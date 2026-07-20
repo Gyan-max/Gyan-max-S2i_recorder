@@ -7,8 +7,7 @@ import {
 import { 
   AdminStatsResponse, AdminCoverageItem, ClipReviewItem
 } from '../types';
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+import { API_BASE } from '../config';
 
 interface AdminPanelProps {
   adminToken: string;
