@@ -6,16 +6,19 @@ export type RecordingState =
   | 'REQUESTING_PERMISSION'
   | 'RECORDING'
   | 'STOPPING'
+  | 'PERSISTING'
   | 'RECORDED'
   | 'ERROR';
 
 // Recording result data structure
 export interface RecordingResult {
+  recordingId?: string; // UUID assigned when saved to IndexedDB
   blob: Blob;
   mimeType: string;
   durationMs: number;
   objectUrl: string;
   createdAt: number;
+  savedToIndexedDB?: boolean; // True if successfully persisted
 }
 
 // Playback state tracking
@@ -45,18 +48,26 @@ export interface UseAudioRecorderReturn {
   audioRef: React.RefObject<HTMLAudioElement>;
 }
 
+// Hook options for persistence
+export interface UseAudioRecorderOptions {
+  onRecordingComplete?: (recording: RecordingResult) => void;
+  persistToIndexedDB?: (blob: Blob, mimeType: string, durationMs: number, createdAt: number) => Promise<string | null>;
+}
+
 // Supported MIME types in order of preference
 const PREFERRED_MIME_TYPES = [
   'audio/webm;codecs=opus',
   'audio/webm',
-  'audio/mp4',
   'audio/mp4;codecs=aac',
+  'audio/mp4',
+  'audio/ogg;codecs=opus',
 ];
 
 // Minimum recording duration (0.4s = 400ms to filter out mis-taps)
 const MIN_DURATION_MS = 400;
 
-export function useAudioRecorder(): UseAudioRecorderReturn {
+export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudioRecorderReturn {
+  const { onRecordingComplete, persistToIndexedDB } = options;
   // State
   const [state, setState] = useState<RecordingState>('IDLE');
   const [recording, setRecording] = useState<RecordingResult | null>(null);
@@ -163,6 +174,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
+          sampleRate: 16000,
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
@@ -188,7 +200,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       };
 
       // Handle recording stop
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const durationMs = stopTimer();
         
         // Check minimum duration
@@ -213,19 +225,50 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
 
         // Create object URL
         const objectUrl = URL.createObjectURL(blob);
+        const createdAt = Date.now();
+
+        // If persistence is enabled, save to IndexedDB first
+        let recordingId: string | undefined;
+        let savedToIndexedDB = false;
+
+        if (persistToIndexedDB) {
+          setState('PERSISTING');
+          
+          try {
+            const id = await persistToIndexedDB(blob, mimeType, durationMs, createdAt);
+            if (id) {
+              recordingId = id;
+              savedToIndexedDB = true;
+            } else {
+              // Persistence failed but we continue with recording
+              console.warn('Recording will not be persisted to IndexedDB');
+            }
+          } catch (err: any) {
+            console.error('IndexedDB persistence error:', err);
+            // Continue anyway - recording still works, just not persisted
+            console.warn('Recording will not be persisted, but you can still listen to it');
+          }
+        }
 
         // Create recording result
         const result: RecordingResult = {
+          recordingId,
           blob,
           mimeType,
           durationMs,
           objectUrl,
-          createdAt: Date.now(),
+          createdAt,
+          savedToIndexedDB,
         };
 
         setRecording(result);
         setState('RECORDED');
         cleanupMediaStream();
+
+        // Call completion callback if provided
+        if (onRecordingComplete) {
+          onRecordingComplete(result);
+        }
 
         // Attempt automatic playback
         setTimeout(() => {
