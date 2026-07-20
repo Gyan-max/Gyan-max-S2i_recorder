@@ -10,4 +10,5 @@ type BuildEnvironment = {
 
 const buildEnvironment = (import.meta as unknown as { env?: BuildEnvironment }).env;
 
-export const API_BASE = buildEnvironment?.VITE_API_URL || '/api';
+const raw = (buildEnvironment?.VITE_API_URL || '').replace(/\/+$/, '');
+export const API_BASE = raw ? (raw.endsWith('/api') ? raw : raw + '/api') : '/api';
