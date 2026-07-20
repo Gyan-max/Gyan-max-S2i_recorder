@@ -26,10 +26,11 @@ async def get_or_create_session_batch(
         (domain, batch_no, list_of_tasks)
     """
     # 1. Check if the speaker has any pending tasks (in-progress batch)
-    pending_stmt = select(Task).where(
-        Task.speaker_id == speaker_id,
-        Task.status == "pending"
-    ).order_by(Task.intent, Task.scenario_no, Task.example_no)
+    # Only return pending tasks if they match the requested domain
+    pending_conditions = [Task.speaker_id == speaker_id, Task.status == "pending"]
+    if requested_domain:
+        pending_conditions.append(Task.domain == requested_domain)
+    pending_stmt = select(Task).where(*pending_conditions).order_by(Task.intent, Task.scenario_no, Task.example_no)
     
     result = await db.execute(pending_stmt)
     pending_tasks = list(result.scalars().all())
@@ -73,8 +74,8 @@ async def get_or_create_session_batch(
         # If they requested this domain explicitly, we can reset or roll over.
         # Otherwise, let's offer a different domain or raise completion.
         if requested_domain:
-            # Re-issue a new cycle if requested explicitly
-            batch_no = 1
+            # Continue batch numbering to avoid unique constraint conflicts
+            batch_no = max_batch + 1
         else:
             # Try to find another domain that is not fully completed by this speaker
             available_domains = ["BNK", "EDU", "TRV", "VAS"]
@@ -92,8 +93,8 @@ async def get_or_create_session_batch(
                     batch_no = (d_max or 0) + 1
                     break
             else:
-                # All domains completed! Default back to domain, batch_no 1 to allow continuous testing
-                batch_no = 1
+                # All domains completed! Continue batch numbering to allow continuous testing
+                batch_no = max_batch + 1
 
     # 4. Generate tasks for the batch (example_no = batch_no)
     # Get distinct intents for the selected domain
@@ -121,15 +122,16 @@ async def get_or_create_session_batch(
         # Shuffle scenarios stably per speaker
         shuffled_scenarios = stable_shuffle(scenarios, speaker_id)
         
-        # Create a task for each scenario with example_no = batch_no
+        # Create a task for each scenario with example_no cycling 1-3
         for idx, scenario in enumerate(shuffled_scenarios, 1):
+            example_no = ((batch_no - 1) % 3) + 1
             task = Task(
                 speaker_id=speaker_id,
                 domain=domain,
                 intent=intent,
                 scenario_id=scenario.scenario_id,
                 scenario_no=idx,
-                example_no=batch_no,
+                example_no=example_no,
                 batch_no=batch_no,
                 status="pending",
                 redo_count=0

@@ -8,7 +8,7 @@ A comprehensive web-based speech data collection platform for building Hinglish 
 - **Tap-to-Record Interface** - Intuitive recording with visual feedback
 - **Multi-Domain Support** - Banking, Education, Travel, and Voice Assistant scenarios  
 - **Real-time Audio Playback** - Immediate review of recorded clips
-- **Offline Support** - Records stored locally when network is unavailable
+- **Offline-First Architecture** - IndexedDB persistence ensures recordings survive page refresh (Phase 5) ⭐
 - **Quality Control** - Automated validation and admin review workflows
 
 ### 👥 User Management  
@@ -81,20 +81,36 @@ Visit `http://localhost:3000` to access the application.
 
 ```mermaid
 graph LR
-    A[Voice Recording] --> B[Client Validation]
-    B --> C[Server Upload]
-    C --> D[Audio Processing]
-    D --> E[Quality Control]
-    E --> F[Admin Review]
-    F --> G[Dataset Export]
+    A[Voice Recording] --> B[IndexedDB Storage]
+    B --> C[Client Validation]
+    C --> D[Server Upload]
+    D --> E[Audio Processing]
+    E --> F[Quality Control]
+    F --> G[Admin Review]
+    G --> H[Dataset Export]
 ```
 
 The system processes audio through multiple stages:
-1. **Client-side validation** - Duration and format checks
-2. **Server processing** - Format conversion and metadata extraction
-3. **Automated QC** - Technical quality assessment  
-4. **Manual review** - Domain expert approval
-5. **Export preparation** - Train/dev/test split generation
+1. **Recording** - MediaRecorder API captures audio
+2. **IndexedDB persistence** - Local storage ensures data safety (Phase 5) ⭐
+3. **Client-side validation** - Duration and format checks
+4. **Server upload** - Authenticated transmission (Phase 6+)
+5. **Server processing** - Format conversion and metadata extraction
+6. **Automated QC** - Technical quality assessment  
+7. **Manual review** - Domain expert approval
+8. **Export preparation** - Train/dev/test split generation
+
+### 🎯 Phase 5 Complete: Offline Recording Persistence
+
+**NEW in Phase 5** (July 2026):
+- ✅ Recordings automatically save to IndexedDB after capture
+- ✅ Survive page refresh, browser restart, device restart
+- ✅ Recovery system detects existing recordings on task load
+- ✅ Multiple recording attempts per task supported
+- ✅ Proper speaker_id/device_id separation
+- ✅ Works completely offline (no server required)
+
+See **[PHASE5_COMPLETE.md](PHASE5_COMPLETE.md)** for full details and testing guide.
 
 ## 🏗️ Architecture
 
@@ -118,8 +134,13 @@ api/
 web/
 ├── src/
 │   ├── App.tsx           # Main React application
+│   ├── Phase3App.tsx     # Current production UI
+│   ├── hooks/
+│   │   └── useAudioRecorder.ts  # Recording state machine with persistence
+│   ├── services/
+│   │   └── recordingDB.ts       # IndexedDB service (Phase 5)
 │   ├── types.ts          # TypeScript type definitions
-│   ├── db.ts             # IndexedDB offline storage
+│   ├── db.ts             # Legacy IndexedDB (deprecated)
 │   └── index.css         # Styling and responsive design
 ├── package.json          # Node.js dependencies
 └── dist/                 # Built production files

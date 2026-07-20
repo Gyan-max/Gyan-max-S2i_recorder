@@ -167,19 +167,28 @@ async def get_next_session_batch(
 @router.get("/progress", response_model=ProgressResponse)
 async def get_detailed_progress(
     domain: str = Query(..., description="BNK, EDU, TRV, or VAS"),
-    batch_no: int = Query(..., ge=1, le=3),
+    batch_no: int = Query(0, ge=0, le=3),
     speaker: Speaker = Depends(get_current_speaker_with_consent),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Returns the three-level nested progress structure for the specified domain and batch.
-    Used to render the detailed progress bars/history in the frontend.
+    Use batch_no=0 to get the latest batch. Used to render the detailed progress bars/history in the frontend.
     """
-    # Fetch all tasks in the batch
+    actual_batch = batch_no
+    if batch_no == 0:
+        max_batch_stmt = select(func.max(Task.batch_no)).where(
+            Task.speaker_id == speaker.speaker_id,
+            Task.domain == domain
+        )
+        max_res = await db.execute(max_batch_stmt)
+        max_batch = max_res.scalar()
+        actual_batch = max_batch if max_batch else 1
+
     stmt = select(Task).where(
         Task.speaker_id == speaker.speaker_id,
         Task.domain == domain,
-        Task.batch_no == batch_no
+        Task.batch_no == actual_batch
     ).order_by(Task.intent, Task.scenario_no, Task.example_no)
     
     res = await db.execute(stmt)
@@ -187,7 +196,7 @@ async def get_detailed_progress(
     
     if not tasks:
         # If no tasks exist, return an empty representation
-        return ProgressResponse(domain=domain, batch_no=batch_no, intents=[])
+        return ProgressResponse(domain=domain, batch_no=actual_batch, intents=[])
         
     # Group by intent
     intents_dict = {}
@@ -269,6 +278,6 @@ async def get_detailed_progress(
         
     return ProgressResponse(
         domain=domain,
-        batch_no=batch_no,
+        batch_no=actual_batch,
         intents=intent_progress_infos
     )
