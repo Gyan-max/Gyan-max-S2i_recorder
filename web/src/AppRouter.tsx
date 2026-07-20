@@ -8,7 +8,7 @@ import AdminPanel from './pages/AdminPanel';
 import { SpeakerResponse, SpeakerRosterItem } from './types';
 import './styles/responsive.css';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export default function AppRouter() {
   // App State

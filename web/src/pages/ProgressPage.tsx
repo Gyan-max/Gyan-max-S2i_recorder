@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart3, CheckCircle, Circle } from 'lucide-react';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 interface ProgressPageProps {
   currentSpeaker: any;

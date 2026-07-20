@@ -3,7 +3,7 @@ import { Mic, RotateCcw, Check, Users, RefreshCw, Headphones, Lock, WifiOff, Che
 import { SpeakerResponse, SpeakerRosterItem, SessionBatchInfo, TaskResponse } from '../types';
 import { saveAudioBlob, enqueueUpload, getUploadQueue, dequeueUpload } from '../db';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 interface HomePageProps {
   deviceId: string;
