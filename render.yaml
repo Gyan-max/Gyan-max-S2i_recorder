@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: s2i-api
+    env: python
+    buildCommand: pip install -r api/requirements.txt
+    startCommand: >
+      mkdir -p /data/storage &&
+      uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    workingDir: api
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:////data/s2i_recorder.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://your-frontend.vercel.app
+      - key: STORAGE_TYPE
+        value: local
+      - key: STORAGE_BASE_PATH
+        value: /data/storage
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: LOG_LEVEL
+        value: INFO
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
