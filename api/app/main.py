@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+import os
 from datetime import datetime
 
 from .database import engine, Base, AsyncSessionLocal
@@ -17,10 +18,18 @@ app = FastAPI(
     version="5.0.0"
 )
 
+# Read CORS origins from environment (comma-separated)
+cors_origins_env = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
+)
+ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+
 # Enable CORS for frontend web app access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

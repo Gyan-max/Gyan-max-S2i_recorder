@@ -12,6 +12,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from typing import Optional
+import os
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -19,11 +20,11 @@ from .database import get_db
 from .models import Speaker, Device
 
 # Security configuration
-SECRET_KEY = "your-secret-key-change-in-production"  # TODO: Move to environment variable
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"  # TODO: Move to environment variable and hash
-ACCESS_TOKEN_EXPIRE_HOURS = 8
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("ACCESS_TOKEN_EXPIRE_HOURS", "8"))
 
 security = HTTPBearer()
 

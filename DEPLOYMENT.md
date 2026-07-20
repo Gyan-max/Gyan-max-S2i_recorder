@@ -62,6 +62,66 @@ cd web
 npm run dev
 ```
 
+## Vercel Frontend + External FastAPI Backend (Recommended)
+
+This repository is full-stack. Deploy the frontend (`/web`) on Vercel and deploy the backend (`/api`) on a host with persistent disk (Render/Railway/Fly/VM), because SQLite and `storage/` files must persist.
+
+### 1. Deploy backend first
+
+Deploy the `api` folder and ensure persistent volume/path is mounted for database and audio files.
+
+Required environment variables:
+
+```bash
+DATABASE_URL=sqlite+aiosqlite:////persistent-path/s2i_recorder.db
+SECRET_KEY=<strong-random-secret>
+ADMIN_USERNAME=<your-admin-username>
+ADMIN_PASSWORD=<strong-admin-password>
+CORS_ORIGINS=https://<your-vercel-domain>
+```
+
+Start command:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Health check:
+
+```bash
+https://<backend-domain>/api/health
+```
+
+### 2. Configure and deploy frontend on Vercel
+
+In Vercel project settings:
+
+- Root Directory: `web`
+- Install Command: `npm install`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+
+This repo includes `web/vercel.json` with an API rewrite:
+
+- `/api/:path*` → `https://<backend-domain>/api/:path*`
+
+Before deploying, replace `<backend-domain>` in `web/vercel.json` with your real backend domain.
+
+### 3. Post-deploy validation
+
+After deploy, verify:
+
+- Frontend home page loads from Vercel URL
+- Recording flow can fetch tasks and upload clips
+- Admin login and admin endpoints work
+
+### 4. Production hardening
+
+- Never use default admin credentials in production
+- Restrict `CORS_ORIGINS` to your Vercel/custom domain only
+- Keep HTTPS enabled (Vercel handles frontend TLS)
+- Configure regular backups for SQLite DB and `storage/`
+
 ## Production Deployment
 
 ### Environment Configuration
