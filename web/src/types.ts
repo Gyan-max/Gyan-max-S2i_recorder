@@ -1,0 +1,118 @@
+// Type definitions for the S2I Recorder frontend application
+
+export interface SpeakerResponse {
+  speaker_id: string;
+  token: string;
+  age_band: string;
+  consent_at: string;
+}
+
+export interface SpeakerRosterItem {
+  speaker_id: string;
+  age_band: string;
+  gender: string;
+  last_used_at: string;
+}
+
+export interface TaskResponse {
+  task_id: string;
+  intent: string;
+  scenario_id: string;
+  scenario_no: number;
+  example_no: number;
+  text_hi: string;
+  examples: string[];
+  register: string | null;
+  status: 'pending' | 'recorded' | 'skipped';
+  redo_count: number;
+}
+
+export interface ProgressInfo {
+  intents_total: number;
+  intents_done: number;
+  current_intent: string | null;
+  scenarios_in_intent: number;
+  scenarios_done: number;
+  examples_in_scenario: number;
+  examples_done: number;
+}
+
+export interface SessionBatchInfo {
+  domain: string;
+  batch_no: number;
+  tasks: TaskResponse[];
+  progress: ProgressInfo;
+}
+
+export interface ClipInitResponse {
+  clip_id: string;
+  filename: string;
+  upload_url: string;
+  upload_expires_at: string;
+}
+
+export interface ClipConfirmResponse {
+  clip_id: string;
+  status: string;
+  next_task: TaskResponse | null;
+}
+
+export interface ClipDiscardResponse {
+  clip_id: string;
+  status: string;
+  task: TaskResponse;
+}
+
+// Admin types
+export interface AdminStatsResponse {
+  total_speakers: number;
+  total_recordings: number;
+  confirmed_clips: number;
+  redo_count: number;
+  qc_passed: number;
+  qc_failed: number;
+}
+
+export interface AdminCoverageItem {
+  domain: string;
+  intent: string;
+  clips_processed: number;
+  speakers_count: number;
+  floor: number;
+}
+
+export interface ClipReviewItem {
+  clip_id: string;
+  task_id: string;
+  speaker_id: string;
+  device_id: string;
+  domain: string;
+  intent: string;
+  scenario_id: string;
+  filename: string | null;
+  duration_s: number | null;
+  qc_flags: string[];
+  status: string;
+  transcript_provisional: string | null;
+  transcript_final: string | null;
+  transcript_source: string | null;
+  created_at: string;
+}
+
+// IndexedDB Types
+export interface UploadQueueItem {
+  clipId: string;
+  blob: Blob;
+  mimeType: string;
+  token: string;
+  deviceId: string;
+  taskId?: string;
+  timestamp: number;
+  retryCount: number;
+}
+
+export interface AudioBlobRecord {
+  clipId: string;
+  blob: Blob;
+  timestamp: number;
+}

@@ -1,0 +1,363 @@
+{
+  "schema_version": "1.0",
+  "domain": "TRV",
+  "domain_name": "Travel & Transport",
+  "scenario_set": "v1",
+  "source_document": "Travel & Transport Collection Field Guide v1.0",
+  "counts": {
+    "intents": 11,
+    "scenarios": 24,
+    "examples": 72
+  },
+  "intents": [
+    "TRV.book_ticket",
+    "TRV.cancel_ticket",
+    "TRV.check_pnr",
+    "TRV.live_status",
+    "TRV.fare_enquiry",
+    "TRV.seat_availability",
+    "TRV.reschedule_trip",
+    "TRV.refund_ticket",
+    "TRV.book_cab",
+    "TRV.schedule_enquiry",
+    "TRV.out_of_scope"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "TRV.book_ticket.v1.s1",
+      "domain": "TRV",
+      "intent": "TRV.book_ticket",
+      "scenario_set": "v1",
+      "register": "neutral, planning",
+      "text_scenario": "You are planning a trip home next weekend and want to book a train ticket.",
+      "examples": [
+        "Delhi se Patna ki ticket book karni hai",
+        "Kal ki train book kar do",
+        "Weekend ki ticket chahiye"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.book_ticket.v1.s2",
+      "domain": "TRV",
+      "intent": "TRV.book_ticket",
+      "scenario_set": "v1",
+      "register": "neutral, planning",
+      "text_scenario": "You need to fly for work and want a flight booked for a specific date.",
+      "examples": [
+        "Ek flight ticket chahiye is date ki",
+        "Mumbai ke liye flight book karo",
+        "Monday ki flight book kar do"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.book_ticket.v1.s3",
+      "domain": "TRV",
+      "intent": "TRV.book_ticket",
+      "scenario_set": "v1",
+      "register": "neutral, planning",
+      "text_scenario": "You are booking a bus for a short intercity trip.",
+      "examples": [
+        "Bus ka ticket book karo",
+        "Jaipur ki bus book kar do",
+        "Ek seat book karni hai bus mein"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.cancel_ticket.v1.s1",
+      "domain": "TRV",
+      "intent": "TRV.cancel_ticket",
+      "scenario_set": "v1",
+      "register": "neutral, mildly annoyed",
+      "text_scenario": "Your plans changed and you no longer need the ticket you booked.",
+      "examples": [
+        "Meri train ticket cancel kar do",
+        "Booking cancel karni hai",
+        "Ye ticket cancel karo plan change ho gaya"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.cancel_ticket.v1.s2",
+      "domain": "TRV",
+      "intent": "TRV.cancel_ticket",
+      "scenario_set": "v1",
+      "register": "neutral, mildly annoyed",
+      "text_scenario": "You accidentally booked the wrong date and want to cancel it.",
+      "examples": [
+        "Galat date ki ticket book ho gayi, cancel karo",
+        "Meri booking cancel kar do please",
+        "Ticket cancel karna hai turant"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.check_pnr.v1.s1",
+      "domain": "TRV",
+      "intent": "TRV.check_pnr",
+      "scenario_set": "v1",
+      "register": "slightly anxious",
+      "text_scenario": "Your ticket is on the waiting list and you want to know if it got confirmed.",
+      "examples": [
+        "PNR status check karna hai",
+        "Meri ticket confirm hui ya nahi?",
+        "Waiting clear hui kya?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.check_pnr.v1.s2",
+      "domain": "TRV",
+      "intent": "TRV.check_pnr",
+      "scenario_set": "v1",
+      "register": "slightly anxious",
+      "text_scenario": "You are travelling tomorrow and want to confirm your seat before packing.",
+      "examples": [
+        "Is PNR ka status batao",
+        "Meri booking confirm hai na?",
+        "Ticket ka status dekho zara"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.live_status.v1.s1",
+      "domain": "TRV",
+      "intent": "TRV.live_status",
+      "scenario_set": "v1",
+      "register": "neutral to impatient",
+      "text_scenario": "You are going to the station to receive someone and want to know where their train is now.",
+      "examples": [
+        "Meri train abhi kahan hai?",
+        "Live running status dikhao",
+        "Train kitni door hai abhi?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.live_status.v1.s2",
+      "domain": "TRV",
+      "intent": "TRV.live_status",
+      "scenario_set": "v1",
+      "register": "neutral to impatient",
+      "text_scenario": "You are waiting at the airport and want to know if the flight is on time.",
+      "examples": [
+        "Flight time pe hai ya late?",
+        "Flight ka status batao",
+        "Kitni late chal rahi hai?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.fare_enquiry.v1.s1",
+      "domain": "TRV",
+      "intent": "TRV.fare_enquiry",
+      "scenario_set": "v1",
+      "register": "neutral, comparing",
+      "text_scenario": "You are deciding whether to travel by train or bus and want to compare prices.",
+      "examples": [
+        "Is route ka fare kitna hai?",
+        "Mumbai tak ka ticket kitne ka padega?",
+        "Kitna kiraya lagega?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.fare_enquiry.v1.s2",
+      "domain": "TRV",
+      "intent": "TRV.fare_enquiry",
+      "scenario_set": "v1",
+      "register": "neutral, comparing",
+      "text_scenario": "You want to know the AC class fare before booking.",
+      "examples": [
+        "AC ka fare kitna hai?",
+        "3AC mein kitna lagega?",
+        "Ticket ki price batao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.seat_availability.v1.s1",
+      "domain": "TRV",
+      "intent": "TRV.seat_availability",
+      "scenario_set": "v1",
+      "register": "neutral, hopeful",
+      "text_scenario": "You want to travel tomorrow but are not sure if seats are still free.",
+      "examples": [
+        "Kal ki train mein seat available hai?",
+        "Koi seat khali hai kya?",
+        "Availability check karo kal ke liye"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.seat_availability.v1.s2",
+      "domain": "TRV",
+      "intent": "TRV.seat_availability",
+      "scenario_set": "v1",
+      "register": "neutral, hopeful",
+      "text_scenario": "You prefer a window seat and want to know if one is free.",
+      "examples": [
+        "Window seat milegi is flight mein?",
+        "Lower berth available hai?",
+        "Kaunsi seats khali hain?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.reschedule_trip.v1.s1",
+      "domain": "TRV",
+      "intent": "TRV.reschedule_trip",
+      "scenario_set": "v1",
+      "register": "neutral",
+      "text_scenario": "Something came up and you need to move your travel to a different day.",
+      "examples": [
+        "Meri flight ki date change karni hai",
+        "Ticket ko agle hafte shift kar do",
+        "Reschedule karna hai ye booking"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.reschedule_trip.v1.s2",
+      "domain": "TRV",
+      "intent": "TRV.reschedule_trip",
+      "scenario_set": "v1",
+      "register": "neutral",
+      "text_scenario": "You want to travel on the same day but at a later time.",
+      "examples": [
+        "Baad wali train mein shift kar do",
+        "Time change karna hai booking ka",
+        "Evening wali flight mein kar do"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.refund_ticket.v1.s1",
+      "domain": "TRV",
+      "intent": "TRV.refund_ticket",
+      "scenario_set": "v1",
+      "register": "neutral, slightly impatient",
+      "text_scenario": "You cancelled a ticket last week and the money has not come back yet.",
+      "examples": [
+        "Cancel ki ticket ka refund kab milega?",
+        "Paise wapas kab aayenge?",
+        "Mera refund abhi tak nahi aaya"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.refund_ticket.v1.s2",
+      "domain": "TRV",
+      "intent": "TRV.refund_ticket",
+      "scenario_set": "v1",
+      "register": "neutral, slightly impatient",
+      "text_scenario": "You want to know how much you will get back after cancellation charges.",
+      "examples": [
+        "Refund kitna milega?",
+        "Cancellation charge kitna katega?",
+        "Kitne paise wapas aayenge?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.book_cab.v1.s1",
+      "domain": "TRV",
+      "intent": "TRV.book_cab",
+      "scenario_set": "v1",
+      "register": "often hurried",
+      "text_scenario": "You are running late and need a cab to the airport right now.",
+      "examples": [
+        "Airport ke liye cab book kar do",
+        "Mujhe cab chahiye abhi",
+        "Jaldi ek cab bulao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.book_cab.v1.s2",
+      "domain": "TRV",
+      "intent": "TRV.book_cab",
+      "scenario_set": "v1",
+      "register": "often hurried",
+      "text_scenario": "You want an auto for a short local trip to the station.",
+      "examples": [
+        "Ek auto book karo station tak",
+        "Auto bulao ghar ke bahar",
+        "Station tak ki ride book karo"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.schedule_enquiry.v1.s1",
+      "domain": "TRV",
+      "intent": "TRV.schedule_enquiry",
+      "scenario_set": "v1",
+      "register": "neutral",
+      "text_scenario": "You are at the bus stop and want to know when the next bus leaves.",
+      "examples": [
+        "Next bus kitne baje hai?",
+        "Agli bus kab aayegi?",
+        "Bus ka time kya hai?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.schedule_enquiry.v1.s2",
+      "domain": "TRV",
+      "intent": "TRV.schedule_enquiry",
+      "scenario_set": "v1",
+      "register": "neutral",
+      "text_scenario": "You are planning your evening and want to know the last metro timing.",
+      "examples": [
+        "Aakhri metro kab hai?",
+        "Last train kitne baje hai?",
+        "Train ka departure time batao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.out_of_scope.v1.s1",
+      "domain": "TRV",
+      "intent": "TRV.out_of_scope",
+      "scenario_set": "v1",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker says something clearly unrelated to travel — everyday chit-chat.",
+      "examples": [
+        "Koi joke sunao",
+        "Aaj khana kya banega?",
+        "Mausam kaisa hai bahar?"
+      ],
+      "is_out_of_scope": true
+    },
+    {
+      "scenario_id": "TRV.out_of_scope.v1.s2",
+      "domain": "TRV",
+      "intent": "TRV.out_of_scope",
+      "scenario_set": "v1",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker asks something belonging to another domain (banking, education, assistant).",
+      "examples": [
+        "Mere account ka balance batao",
+        "Ye question solve kar do",
+        "Alarm laga do subah ka"
+      ],
+      "is_out_of_scope": true
+    },
+    {
+      "scenario_id": "TRV.out_of_scope.v1.s3",
+      "domain": "TRV",
+      "intent": "TRV.out_of_scope",
+      "scenario_set": "v1",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker only greets or mutters without a request.",
+      "examples": [
+        "Hello ji",
+        "Haan bolo",
+        "Achha chhodo"
+      ],
+      "is_out_of_scope": true
+    }
+  ]
+}

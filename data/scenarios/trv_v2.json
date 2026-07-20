@@ -1,0 +1,363 @@
+{
+  "schema_version": "1.0",
+  "domain": "TRV",
+  "domain_name": "Travel & Transport",
+  "scenario_set": "v2",
+  "source_document": "Travel & Transport Extended Scenarios v2.0",
+  "counts": {
+    "intents": 11,
+    "scenarios": 24,
+    "examples": 72
+  },
+  "intents": [
+    "TRV.book_ticket",
+    "TRV.cancel_ticket",
+    "TRV.check_pnr",
+    "TRV.live_status",
+    "TRV.fare_enquiry",
+    "TRV.seat_availability",
+    "TRV.reschedule_trip",
+    "TRV.refund_ticket",
+    "TRV.book_cab",
+    "TRV.schedule_enquiry",
+    "TRV.out_of_scope"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "TRV.book_ticket.v2.s1",
+      "domain": "TRV",
+      "intent": "TRV.book_ticket",
+      "scenario_set": "v2",
+      "register": "neutral, festive urgency",
+      "text_scenario": "A festival is coming and everyone is travelling home, so you want to book before seats run out.",
+      "examples": [
+        "Tyohar aa raha hai, jagah pehle le lo",
+        "Seats khatam hone se pehle karwa do",
+        "Bhid hone wali hai, abhi karwao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.book_ticket.v2.s2",
+      "domain": "TRV",
+      "intent": "TRV.book_ticket",
+      "scenario_set": "v2",
+      "register": "neutral, festive urgency",
+      "text_scenario": "You are travelling overnight and want a sleeper berth.",
+      "examples": [
+        "Raat wali gaadi mein sona hai",
+        "Sone wali jagah chahiye raat ke liye",
+        "Overnight safar ke liye karwa do"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.book_ticket.v2.s3",
+      "domain": "TRV",
+      "intent": "TRV.book_ticket",
+      "scenario_set": "v2",
+      "register": "neutral, festive urgency",
+      "text_scenario": "Four of you are travelling together and want seats side by side.",
+      "examples": [
+        "Char log hain, saath mein chahiye",
+        "Hum sab ek jagah baithenge",
+        "Group ke liye karwa do saath"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.cancel_ticket.v2.s1",
+      "domain": "TRV",
+      "intent": "TRV.cancel_ticket",
+      "scenario_set": "v2",
+      "register": "neutral, resigned",
+      "text_scenario": "Someone at home fell ill and you can no longer travel.",
+      "examples": [
+        "Ghar mein tabiyat kharab hai, nahi ja sakta",
+        "Ab jaana nahi ho payega, hata do",
+        "Yatra radd karni padegi"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.cancel_ticket.v2.s2",
+      "domain": "TRV",
+      "intent": "TRV.cancel_ticket",
+      "scenario_set": "v2",
+      "register": "neutral, resigned",
+      "text_scenario": "You booked two options and now want to drop the one you will not use.",
+      "examples": [
+        "Do karwa liye the, ek hata do",
+        "Jo nahi chahiye wo radd karo",
+        "Extra wala nikal do"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.check_pnr.v2.s1",
+      "domain": "TRV",
+      "intent": "TRV.check_pnr",
+      "scenario_set": "v2",
+      "register": "tense, checking repeatedly",
+      "text_scenario": "You have been on the waiting list for days and the journey is tomorrow.",
+      "examples": [
+        "Kal nikalna hai, list se upar aaya kya?",
+        "Abhi tak pakka hua ya nahi?",
+        "Intezaar wali list mein kahan hoon?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.check_pnr.v2.s2",
+      "domain": "TRV",
+      "intent": "TRV.check_pnr",
+      "scenario_set": "v2",
+      "register": "tense, checking repeatedly",
+      "text_scenario": "Your family member is travelling and you want to check on their behalf.",
+      "examples": [
+        "Papa ki booking pakki hui kya dekho",
+        "Unka number daal ke check karo",
+        "Ghar walon ka pata karo confirm hai ya nahi"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.live_status.v2.s1",
+      "domain": "TRV",
+      "intent": "TRV.live_status",
+      "scenario_set": "v2",
+      "register": "impatient, waiting",
+      "text_scenario": "You have been standing on the platform for an hour with no announcement.",
+      "examples": [
+        "Ek ghanta ho gaya khade khade, kahan hai?",
+        "Koi announcement nahi, pata karo",
+        "Aa bhi rahi hai ya nahi?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.live_status.v2.s2",
+      "domain": "TRV",
+      "intent": "TRV.live_status",
+      "scenario_set": "v2",
+      "register": "impatient, waiting",
+      "text_scenario": "You are tracking a relative's journey to know when to leave to collect them.",
+      "examples": [
+        "Kab tak pahunchegi wo, batao",
+        "Mujhe nikalna kab chahiye lene?",
+        "Abhi kis jagah tak aayi hai?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.fare_enquiry.v2.s1",
+      "domain": "TRV",
+      "intent": "TRV.fare_enquiry",
+      "scenario_set": "v2",
+      "register": "neutral, budgeting",
+      "text_scenario": "You are on a tight budget and want to know the cheapest way to travel.",
+      "examples": [
+        "Sabse sasta kaunsa padega?",
+        "Kam paise mein kaise ja sakte hain?",
+        "Budget kitna lagega poore safar ka?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.fare_enquiry.v2.s2",
+      "domain": "TRV",
+      "intent": "TRV.fare_enquiry",
+      "scenario_set": "v2",
+      "register": "neutral, budgeting",
+      "text_scenario": "You want to know if a child travels at a reduced rate.",
+      "examples": [
+        "Bachhe ka aadha lagta hai kya?",
+        "Chhote bachhe ke liye kitna?",
+        "Bachhon ka rate alag hota hai?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.seat_availability.v2.s1",
+      "domain": "TRV",
+      "intent": "TRV.seat_availability",
+      "scenario_set": "v2",
+      "register": "hopeful, last-minute",
+      "text_scenario": "You decided to travel at the last moment and are hoping something is still free.",
+      "examples": [
+        "Achanak plan bana, kuch bacha hai?",
+        "Last moment mein mil jayega?",
+        "Aaj hi nikalna hai, jagah hai?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.seat_availability.v2.s2",
+      "domain": "TRV",
+      "intent": "TRV.seat_availability",
+      "scenario_set": "v2",
+      "register": "hopeful, last-minute",
+      "text_scenario": "You want to sit with an elderly parent who cannot climb to an upper berth.",
+      "examples": [
+        "Maa ke liye neeche wali chahiye",
+        "Upar nahi chadh payenge wo",
+        "Buzurg ke liye kya available hai?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.reschedule_trip.v2.s1",
+      "domain": "TRV",
+      "intent": "TRV.reschedule_trip",
+      "scenario_set": "v2",
+      "register": "neutral, adjusting",
+      "text_scenario": "Your meeting got postponed so your travel must shift too.",
+      "examples": [
+        "Meeting aage badh gayi, safar bhi badlo",
+        "Tarikh aage karni hai ab",
+        "Do din baad ka kar do"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.reschedule_trip.v2.s2",
+      "domain": "TRV",
+      "intent": "TRV.reschedule_trip",
+      "scenario_set": "v2",
+      "register": "neutral, adjusting",
+      "text_scenario": "Bad weather is forecast and you want to travel a day earlier instead.",
+      "examples": [
+        "Mausam kharab hoga, ek din pehle nikal jaun",
+        "Pehle wale din shift kar do",
+        "Jaldi wala kar do isko"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.refund_ticket.v2.s1",
+      "domain": "TRV",
+      "intent": "TRV.refund_ticket",
+      "scenario_set": "v2",
+      "register": "neutral, following up",
+      "text_scenario": "The journey was cancelled by the operator, not by you, and you expect your money back.",
+      "examples": [
+        "Unhone radd kiya tha, paisa wapas do",
+        "Meri galti nahi thi, poora milna chahiye",
+        "Unki taraf se cancel hua, kya milega?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.refund_ticket.v2.s2",
+      "domain": "TRV",
+      "intent": "TRV.refund_ticket",
+      "scenario_set": "v2",
+      "register": "neutral, following up",
+      "text_scenario": "You want to know how long the money usually takes to come back.",
+      "examples": [
+        "Kitne din lagte hain paisa aane mein?",
+        "Normally kab tak wapas aata hai?",
+        "Prakriya mein kitna samay lagega?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.book_cab.v2.s1",
+      "domain": "TRV",
+      "intent": "TRV.book_cab",
+      "scenario_set": "v2",
+      "register": "hurried, late at night",
+      "text_scenario": "It is late at night and you need a safe ride home.",
+      "examples": [
+        "Raat bahut ho gayi, ghar pahuncha do",
+        "Safe gaadi bhejo is waqt",
+        "Der ho gayi, koi sawari bhejo"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.book_cab.v2.s2",
+      "domain": "TRV",
+      "intent": "TRV.book_cab",
+      "scenario_set": "v2",
+      "register": "hurried, late at night",
+      "text_scenario": "You are carrying heavy luggage and need a larger vehicle.",
+      "examples": [
+        "Bahut saman hai, badi gaadi bhejo",
+        "Luggage zyada hai, chhoti nahi chalegi",
+        "Bade wali gaadi chahiye samaan ke liye"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.schedule_enquiry.v2.s1",
+      "domain": "TRV",
+      "intent": "TRV.schedule_enquiry",
+      "scenario_set": "v2",
+      "register": "neutral, planning",
+      "text_scenario": "You want to know the first service of the morning so you can plan an early start.",
+      "examples": [
+        "Subah sabse pehli kaunsi hai?",
+        "Din ki shuruat mein kab chalti hai?",
+        "Sabse jaldi wali ka samay batao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.schedule_enquiry.v2.s2",
+      "domain": "TRV",
+      "intent": "TRV.schedule_enquiry",
+      "scenario_set": "v2",
+      "register": "neutral, planning",
+      "text_scenario": "You want to know how frequently services run on this route.",
+      "examples": [
+        "Kitni kitni der mein aati hai?",
+        "Har ghante hai ya kam?",
+        "Is raste pe kitni baar chalti hai?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "TRV.out_of_scope.v2.s1",
+      "domain": "TRV",
+      "intent": "TRV.out_of_scope",
+      "scenario_set": "v2",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker talks about something personal unrelated to travel.",
+      "examples": [
+        "Tabiyat theek nahi lag rahi",
+        "Kal bahut kaam tha office mein",
+        "Chai pi lete hain pehle"
+      ],
+      "is_out_of_scope": true
+    },
+    {
+      "scenario_id": "TRV.out_of_scope.v2.s2",
+      "domain": "TRV",
+      "intent": "TRV.out_of_scope",
+      "scenario_set": "v2",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker asks something from another domain — banking, education, or assistant.",
+      "examples": [
+        "Kisht kitni baaki hai meri?",
+        "Ye sawaal hal kar do",
+        "Gaana badal do agla"
+      ],
+      "is_out_of_scope": true
+    },
+    {
+      "scenario_id": "TRV.out_of_scope.v2.s3",
+      "domain": "TRV",
+      "intent": "TRV.out_of_scope",
+      "scenario_set": "v2",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker gives filler or an unfinished sentence.",
+      "examples": [
+        "Haan wo bhi hai",
+        "Ek minute sochne do",
+        "Chhodo koi baat nahi"
+      ],
+      "is_out_of_scope": true
+    }
+  ]
+}

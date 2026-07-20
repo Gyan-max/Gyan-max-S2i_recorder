@@ -1,0 +1,349 @@
+{
+  "schema_version": "1.0",
+  "domain": "VAS",
+  "domain_name": "Virtual Assistant",
+  "scenario_set": "v1",
+  "source_document": "Virtual Assistant Collection Field Guide v1.0",
+  "counts": {
+    "intents": 11,
+    "scenarios": 23,
+    "examples": 69
+  },
+  "intents": [
+    "VAS.set_reminder",
+    "VAS.set_alarm",
+    "VAS.play_music",
+    "VAS.navigate",
+    "VAS.weather_query",
+    "VAS.make_call",
+    "VAS.send_message",
+    "VAS.search_info",
+    "VAS.set_timer",
+    "VAS.control_device",
+    "VAS.out_of_scope"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "VAS.set_reminder.v1.s1",
+      "domain": "VAS",
+      "intent": "VAS.set_reminder",
+      "scenario_set": "v1",
+      "register": "casual, imperative",
+      "text_scenario": "You have a meeting at 5 and know you will forget it.",
+      "examples": [
+        "5 baje meeting ka reminder laga do",
+        "Meeting ka reminder set karo",
+        "Yaad dilana mujhe 5 baje"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.set_reminder.v1.s2",
+      "domain": "VAS",
+      "intent": "VAS.set_reminder",
+      "scenario_set": "v1",
+      "register": "casual, imperative",
+      "text_scenario": "You must take medicine after dinner and want to be reminded.",
+      "examples": [
+        "Medicine lene ka reminder set karo",
+        "Khane ke baad yaad dilana",
+        "Dawai ka reminder laga do"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.set_alarm.v1.s1",
+      "domain": "VAS",
+      "intent": "VAS.set_alarm",
+      "scenario_set": "v1",
+      "register": "casual",
+      "text_scenario": "You need to wake up early tomorrow for a trip.",
+      "examples": [
+        "Subah 6 baje alarm laga do",
+        "Kal 7 baje utha dena",
+        "Alarm set karo subah ka"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.set_alarm.v1.s2",
+      "domain": "VAS",
+      "intent": "VAS.set_alarm",
+      "scenario_set": "v1",
+      "register": "casual",
+      "text_scenario": "You want a short nap and need an alarm in a couple of hours.",
+      "examples": [
+        "Ek alarm set karo do ghante baad",
+        "2 hours ka alarm laga do",
+        "Thodi der baad utha dena"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.play_music.v1.s1",
+      "domain": "VAS",
+      "intent": "VAS.play_music",
+      "scenario_set": "v1",
+      "register": "relaxed",
+      "text_scenario": "You are relaxing and want some music on.",
+      "examples": [
+        "Koi gaana chala do",
+        "Music play karo",
+        "Kuch acha bajao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.play_music.v1.s2",
+      "domain": "VAS",
+      "intent": "VAS.play_music",
+      "scenario_set": "v1",
+      "register": "relaxed",
+      "text_scenario": "You want a specific artist or kind of song.",
+      "examples": [
+        "Arijit Singh ka gaana chala do",
+        "Koi sad song play karo",
+        "Punjabi gaane bajao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.navigate.v1.s1",
+      "domain": "VAS",
+      "intent": "VAS.navigate",
+      "scenario_set": "v1",
+      "register": "neutral, sometimes hurried",
+      "text_scenario": "You are driving somewhere unfamiliar and need directions.",
+      "examples": [
+        "Mujhe station ka rasta batao",
+        "Ghar tak navigate karo",
+        "Directions do wahan tak"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.navigate.v1.s2",
+      "domain": "VAS",
+      "intent": "VAS.navigate",
+      "scenario_set": "v1",
+      "register": "neutral, sometimes hurried",
+      "text_scenario": "You need to find the nearest petrol pump before your tank runs out.",
+      "examples": [
+        "Nearest petrol pump tak le chalo",
+        "Pass wala petrol pump dhundo",
+        "Rasta dikhao petrol pump ka"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.weather_query.v1.s1",
+      "domain": "VAS",
+      "intent": "VAS.weather_query",
+      "scenario_set": "v1",
+      "register": "casual",
+      "text_scenario": "You are deciding whether to carry an umbrella today.",
+      "examples": [
+        "Aaj barish hogi kya?",
+        "Aaj ka weather kaisa hai?",
+        "Baarish ke chance hain?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.weather_query.v1.s2",
+      "domain": "VAS",
+      "intent": "VAS.weather_query",
+      "scenario_set": "v1",
+      "register": "casual",
+      "text_scenario": "You are planning an outing tomorrow and want to check conditions.",
+      "examples": [
+        "Kal ka mausam kaisa rahega?",
+        "Temperature kitna hai bahar?",
+        "Kal weather theek rahega?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.make_call.v1.s1",
+      "domain": "VAS",
+      "intent": "VAS.make_call",
+      "scenario_set": "v1",
+      "register": "casual, quick",
+      "text_scenario": "You want to call a family member.",
+      "examples": [
+        "Mummy ko call lagao",
+        "Papa ko phone karo",
+        "Ghar pe call milao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.make_call.v1.s2",
+      "domain": "VAS",
+      "intent": "VAS.make_call",
+      "scenario_set": "v1",
+      "register": "casual, quick",
+      "text_scenario": "You need to call a friend back.",
+      "examples": [
+        "Rohit ko dial kar do",
+        "Call lagao Rahul ko",
+        "Usse phone milao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.send_message.v1.s1",
+      "domain": "VAS",
+      "intent": "VAS.send_message",
+      "scenario_set": "v1",
+      "register": "casual",
+      "text_scenario": "You are running late and want to text someone that you are on the way.",
+      "examples": [
+        "Message bhej do ki main aa raha hoon",
+        "Ek text kar do bhai ko",
+        "Bol do late ho jaunga"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.send_message.v1.s2",
+      "domain": "VAS",
+      "intent": "VAS.send_message",
+      "scenario_set": "v1",
+      "register": "casual",
+      "text_scenario": "You want to send a quick note to a family member.",
+      "examples": [
+        "Mummy ko message karo",
+        "Ek msg bhejo ghar pe",
+        "Text kar do usko"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.search_info.v1.s1",
+      "domain": "VAS",
+      "intent": "VAS.search_info",
+      "scenario_set": "v1",
+      "register": "neutral",
+      "text_scenario": "A quick factual question comes to mind and you want an answer.",
+      "examples": [
+        "India ki capital kya hai?",
+        "Ye kya hota hai search karo",
+        "Google pe dhundo ye"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.search_info.v1.s2",
+      "domain": "VAS",
+      "intent": "VAS.search_info",
+      "scenario_set": "v1",
+      "register": "neutral",
+      "text_scenario": "You are looking for somewhere to eat nearby.",
+      "examples": [
+        "Search karo best restaurants near me",
+        "Aas paas ke cafe dhundo",
+        "Achhi jagah dhundo khane ki"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.set_timer.v1.s1",
+      "domain": "VAS",
+      "intent": "VAS.set_timer",
+      "scenario_set": "v1",
+      "register": "casual, practical",
+      "text_scenario": "You are cooking and need a timer so nothing burns.",
+      "examples": [
+        "10 minute ka timer laga do",
+        "Cooking ke liye timer chalu karo",
+        "Timer set karo 5 minute ka"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.set_timer.v1.s2",
+      "domain": "VAS",
+      "intent": "VAS.set_timer",
+      "scenario_set": "v1",
+      "register": "casual, practical",
+      "text_scenario": "You are studying in focused blocks and want a countdown.",
+      "examples": [
+        "Ek ghante ka timer laga do",
+        "25 minute ka timer start karo",
+        "Timer chalu karo padhai ke liye"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.control_device.v1.s1",
+      "domain": "VAS",
+      "intent": "VAS.control_device",
+      "scenario_set": "v1",
+      "register": "casual, imperative",
+      "text_scenario": "The music is too loud and you want it turned down.",
+      "examples": [
+        "Volume thoda kam kar do",
+        "Awaaz kam karo",
+        "Volume down karo"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.control_device.v1.s2",
+      "domain": "VAS",
+      "intent": "VAS.control_device",
+      "scenario_set": "v1",
+      "register": "casual, imperative",
+      "text_scenario": "You are going to sleep and want the lights off.",
+      "examples": [
+        "Lights off kar do bedroom ki",
+        "Light band karo",
+        "Bedroom ki light bujha do"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "VAS.out_of_scope.v1.s1",
+      "domain": "VAS",
+      "intent": "VAS.out_of_scope",
+      "scenario_set": "v1",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker says something that is not a device command at all — conversation or opinion.",
+      "examples": [
+        "Tumhe kya lagta hai?",
+        "Aaj bahut thak gaya hoon",
+        "Kya kar rahe ho?"
+      ],
+      "is_out_of_scope": true
+    },
+    {
+      "scenario_id": "VAS.out_of_scope.v1.s2",
+      "domain": "VAS",
+      "intent": "VAS.out_of_scope",
+      "scenario_set": "v1",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker asks something belonging to another domain (banking, travel, education).",
+      "examples": [
+        "Mera parcel kahan hai?",
+        "Loan ka interest rate kya hai?",
+        "PNR status batao"
+      ],
+      "is_out_of_scope": true
+    },
+    {
+      "scenario_id": "VAS.out_of_scope.v1.s3",
+      "domain": "VAS",
+      "intent": "VAS.out_of_scope",
+      "scenario_set": "v1",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker only greets, laughs, or mutters with no command.",
+      "examples": [
+        "Hey, hello",
+        "Haan haan theek hai",
+        "Kuch nahi, chhodo"
+      ],
+      "is_out_of_scope": true
+    }
+  ]
+}

@@ -1,0 +1,363 @@
+{
+  "schema_version": "1.0",
+  "domain": "EDU",
+  "domain_name": "Education & Learning",
+  "scenario_set": "v2",
+  "source_document": "Education & Learning Extended Scenarios v2.0",
+  "counts": {
+    "intents": 11,
+    "scenarios": 24,
+    "examples": 72
+  },
+  "intents": [
+    "EDU.explain_concept",
+    "EDU.solve_problem",
+    "EDU.define_term",
+    "EDU.give_example",
+    "EDU.quiz_me",
+    "EDU.translate_text",
+    "EDU.study_plan",
+    "EDU.assignment_help",
+    "EDU.recommend_resource",
+    "EDU.check_answer",
+    "EDU.out_of_scope"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "EDU.explain_concept.v2.s1",
+      "domain": "EDU",
+      "intent": "EDU.explain_concept",
+      "scenario_set": "v2",
+      "register": "curious, engaged",
+      "text_scenario": "You are watching a lecture recording and one idea keeps going over your head.",
+      "examples": [
+        "Lecture mein ye baat samajh nahi aayi",
+        "Ise thoda aur kholke bataiye",
+        "Poori tarah clear nahi hua ye point"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.explain_concept.v2.s2",
+      "domain": "EDU",
+      "intent": "EDU.explain_concept",
+      "scenario_set": "v2",
+      "register": "curious, engaged",
+      "text_scenario": "Your younger sibling asked you a question and you realise you cannot explain it yourself.",
+      "examples": [
+        "Bhai ne pucha, mujhe khud nahi pata",
+        "Isko aasan tarike se batao",
+        "Bachhe ko kaise samjhaun ye?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.explain_concept.v2.s3",
+      "domain": "EDU",
+      "intent": "EDU.explain_concept",
+      "scenario_set": "v2",
+      "register": "curious, engaged",
+      "text_scenario": "You are reading ahead in the textbook and hit an idea the book assumes you already know.",
+      "examples": [
+        "Book maan ke chal rahi hai, mujhe nahi pata",
+        "Iske peeche ka logic kya hai?",
+        "Ye kaam kaise karta hai andar se?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.solve_problem.v2.s1",
+      "domain": "EDU",
+      "intent": "EDU.solve_problem",
+      "scenario_set": "v2",
+      "register": "determined, a little stuck",
+      "text_scenario": "You have been on the same question for twenty minutes and cannot move forward.",
+      "examples": [
+        "Bees minute se atka hoon isi pe",
+        "Aage badh hi nahi pa raha",
+        "Iska hal nikaal ke dikhao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.solve_problem.v2.s2",
+      "domain": "EDU",
+      "intent": "EDU.solve_problem",
+      "scenario_set": "v2",
+      "register": "determined, a little stuck",
+      "text_scenario": "You are practising past-year papers and one question has no solution given.",
+      "examples": [
+        "Purane paper ka sawaal hai, answer nahi hai",
+        "Iska hal kaise nikalta hai?",
+        "Ye wala kar ke batao poora"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.define_term.v2.s1",
+      "domain": "EDU",
+      "intent": "EDU.define_term",
+      "scenario_set": "v2",
+      "register": "neutral, note-taking",
+      "text_scenario": "A word appeared in your exam syllabus that you have never seen before.",
+      "examples": [
+        "Syllabus mein naya shabd hai, arth batao",
+        "Ye kis cheez ko kehte hain?",
+        "Iska sahi arth kya hota hai?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.define_term.v2.s2",
+      "domain": "EDU",
+      "intent": "EDU.define_term",
+      "scenario_set": "v2",
+      "register": "neutral, note-taking",
+      "text_scenario": "Two terms sound similar and you want to know exactly what one of them means.",
+      "examples": [
+        "Dono ek jaise lagte hain, farak batao",
+        "Iska exact meaning kya hai?",
+        "Theek theek kya kehlata hai ye?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.give_example.v2.s1",
+      "domain": "EDU",
+      "intent": "EDU.give_example",
+      "scenario_set": "v2",
+      "register": "neutral, seeking clarity",
+      "text_scenario": "The definition made sense but you cannot picture where it applies.",
+      "examples": [
+        "Kahan istemal hota hai ye batao",
+        "Kaise dikhta hai practically?",
+        "Kisi cheez se jodkar dikhao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.give_example.v2.s2",
+      "domain": "EDU",
+      "intent": "EDU.give_example",
+      "scenario_set": "v2",
+      "register": "neutral, seeking clarity",
+      "text_scenario": "You must present in class and want illustrations to include.",
+      "examples": [
+        "Presentation ke liye kuch cases chahiye",
+        "Do teen aur dikhao is tarah ke",
+        "Class mein kya bataun, kuch batao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.quiz_me.v2.s1",
+      "domain": "EDU",
+      "intent": "EDU.quiz_me",
+      "scenario_set": "v2",
+      "register": "energetic, competitive",
+      "text_scenario": "You are studying with a friend and want to compete on who knows more.",
+      "examples": [
+        "Dost ke saath compete karna hai, sawaal pucho",
+        "Mushkil wale puchna shuru karo",
+        "Dekhte hain kitna aata hai mujhe"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.quiz_me.v2.s2",
+      "domain": "EDU",
+      "intent": "EDU.quiz_me",
+      "scenario_set": "v2",
+      "register": "energetic, competitive",
+      "text_scenario": "You have ten minutes free before class and want rapid-fire practice.",
+      "examples": [
+        "Das minute hain, tez tez pucho",
+        "Jaldi jaldi sawaal daago",
+        "Rapid fire round karo mera"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.translate_text.v2.s1",
+      "domain": "EDU",
+      "intent": "EDU.translate_text",
+      "scenario_set": "v2",
+      "register": "neutral, working",
+      "text_scenario": "You are filling a form that is entirely in English and one line confuses you.",
+      "examples": [
+        "Form ki ye line samajh nahi aa rahi",
+        "Isko apni bhasha mein badlo",
+        "Ye likha kya hai, batao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.translate_text.v2.s2",
+      "domain": "EDU",
+      "intent": "EDU.translate_text",
+      "scenario_set": "v2",
+      "register": "neutral, working",
+      "text_scenario": "You want to reply to a message but cannot phrase it in the other language.",
+      "examples": [
+        "Jawab dena hai, shabd nahi mil rahe",
+        "Isko dusri bhasha mein likho",
+        "Ye baat wahan kaise kahenge?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.study_plan.v2.s1",
+      "domain": "EDU",
+      "intent": "EDU.study_plan",
+      "scenario_set": "v2",
+      "register": "anxious, seeking structure",
+      "text_scenario": "You have three subjects to revise and only one week left.",
+      "examples": [
+        "Teen subject hain, ek hafta bacha",
+        "Kaunsa pehle padhu batao",
+        "Time kaise baantu subjects mein?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.study_plan.v2.s2",
+      "domain": "EDU",
+      "intent": "EDU.study_plan",
+      "scenario_set": "v2",
+      "register": "anxious, seeking structure",
+      "text_scenario": "You keep starting and abandoning your revision and want a routine that sticks.",
+      "examples": [
+        "Shuru karta hoon phir chhod deta hoon",
+        "Ek pakka routine bana do",
+        "Roz ka target set karo mera"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.assignment_help.v2.s1",
+      "domain": "EDU",
+      "intent": "EDU.assignment_help",
+      "scenario_set": "v2",
+      "register": "tired, deadline pressure",
+      "text_scenario": "You have submitted nothing and the deadline is tonight.",
+      "examples": [
+        "Aaj raat tak jama karna hai, kuch nahi hua",
+        "Deadline sar pe hai, madad karo",
+        "Jaldi se ye kaam nipta do"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.assignment_help.v2.s2",
+      "domain": "EDU",
+      "intent": "EDU.assignment_help",
+      "scenario_set": "v2",
+      "register": "tired, deadline pressure",
+      "text_scenario": "You have written half of it and are unsure whether the rest is going the right way.",
+      "examples": [
+        "Aadha likh liya, aage kya likhu?",
+        "Sahi disha mein ja raha hoon kya?",
+        "Baaki hissa kaise poora karu?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.recommend_resource.v2.s1",
+      "domain": "EDU",
+      "intent": "EDU.recommend_resource",
+      "scenario_set": "v2",
+      "register": "curious, planning ahead",
+      "text_scenario": "You are starting a brand new subject next semester and want something to begin with.",
+      "examples": [
+        "Naya vishay shuru kar raha hoon, kahan se padhu?",
+        "Shuruaat ke liye kya theek rahega?",
+        "Beginner ke liye kuch bataiye"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.recommend_resource.v2.s2",
+      "domain": "EDU",
+      "intent": "EDU.recommend_resource",
+      "scenario_set": "v2",
+      "register": "curious, planning ahead",
+      "text_scenario": "The material you have is too difficult and you want something simpler.",
+      "examples": [
+        "Jo hai wo bahut kathin hai, aasan kuch do",
+        "Simple bhasha wala kuch bataiye",
+        "Isse halka kuch milega padhne ko?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.check_answer.v2.s1",
+      "domain": "EDU",
+      "intent": "EDU.check_answer",
+      "scenario_set": "v2",
+      "register": "uncertain, wanting confirmation",
+      "text_scenario": "You and a classmate got different answers to the same question.",
+      "examples": [
+        "Dost ka alag aaya, kiska sahi hai?",
+        "Dono mein se kaunsa theek hai?",
+        "Mera wala galat to nahi?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.check_answer.v2.s2",
+      "domain": "EDU",
+      "intent": "EDU.check_answer",
+      "scenario_set": "v2",
+      "register": "uncertain, wanting confirmation",
+      "text_scenario": "You solved it quickly and it felt too easy, so you doubt yourself.",
+      "examples": [
+        "Bahut jaldi ho gaya, shak ho raha hai",
+        "Itna aasan kaise ho sakta hai, dekho",
+        "Ek baar dobara jaanch lo"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "EDU.out_of_scope.v2.s1",
+      "domain": "EDU",
+      "intent": "EDU.out_of_scope",
+      "scenario_set": "v2",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker talks about something personal with no learning request.",
+      "examples": [
+        "Bhookh lag rahi hai bahut",
+        "Kal ghumne jaana hai",
+        "Bahut garmi ho rahi aaj"
+      ],
+      "is_out_of_scope": true
+    },
+    {
+      "scenario_id": "EDU.out_of_scope.v2.s2",
+      "domain": "EDU",
+      "intent": "EDU.out_of_scope",
+      "scenario_set": "v2",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker asks something from another domain — banking, travel, or assistant.",
+      "examples": [
+        "Kiraya transfer kar do",
+        "Seat khali hai kya dekho",
+        "Light bujha do kamre ki"
+      ],
+      "is_out_of_scope": true
+    },
+    {
+      "scenario_id": "EDU.out_of_scope.v2.s3",
+      "domain": "EDU",
+      "intent": "EDU.out_of_scope",
+      "scenario_set": "v2",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker responds with hesitation or an incomplete thought.",
+      "examples": [
+        "Wo kya bolte hain use",
+        "Ruko ruko ek second",
+        "Nahi kuch khaas nahi"
+      ],
+      "is_out_of_scope": true
+    }
+  ]
+}

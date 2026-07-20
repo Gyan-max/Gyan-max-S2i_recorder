@@ -1,0 +1,420 @@
+{
+  "schema_version": "1.0",
+  "domain": "BNK",
+  "domain_name": "Banking & Finance",
+  "scenario_set": "v2",
+  "source_document": "Banking & Finance Extended Scenarios v2.0",
+  "counts": {
+    "intents": 12,
+    "scenarios": 28,
+    "examples": 84
+  },
+  "intents": [
+    "BNK.check_balance",
+    "BNK.mini_statement",
+    "BNK.transfer_money",
+    "BNK.block_card",
+    "BNK.report_fraud",
+    "BNK.card_status",
+    "BNK.reset_pin",
+    "BNK.loan_enquiry",
+    "BNK.bill_payment",
+    "BNK.branch_atm_locate",
+    "BNK.account_open",
+    "BNK.out_of_scope"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "BNK.check_balance.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.check_balance",
+      "scenario_set": "v2",
+      "register": "calm, end-of-month",
+      "text_scenario": "It is the last week of the month and you are wondering how much is left before your next salary.",
+      "examples": [
+        "Mahine ke end mein kitna bacha hai?",
+        "Kitna paisa reh gaya account mein",
+        "Dekho na kitna balance bacha"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.check_balance.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.check_balance",
+      "scenario_set": "v2",
+      "register": "calm, end-of-month",
+      "text_scenario": "Someone promised to send you money and you want to see whether it has arrived.",
+      "examples": [
+        "Paisa aaya kya mere account mein?",
+        "Credit hua ya nahi abhi tak",
+        "Koi amount aayi hai kya?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.check_balance.v2.s3",
+      "domain": "BNK",
+      "intent": "BNK.check_balance",
+      "scenario_set": "v2",
+      "register": "calm, end-of-month",
+      "text_scenario": "You are about to book something online and want to be sure the payment will go through.",
+      "examples": [
+        "Booking se pehle balance dekh lo",
+        "Itne paise hain ya nahi account mein?",
+        "Payment ho jayega, balance confirm karo"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.mini_statement.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.mini_statement",
+      "scenario_set": "v2",
+      "register": "neutral, reviewing",
+      "text_scenario": "You suspect you spent more than you planned this month and want to review where it went.",
+      "examples": [
+        "Is mahine ka kharcha dikhao",
+        "Kahan kahan paise gaye batao",
+        "Transaction history nikaalo mera"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.mini_statement.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.mini_statement",
+      "scenario_set": "v2",
+      "register": "neutral, reviewing",
+      "text_scenario": "You need a short record of recent activity to show someone.",
+      "examples": [
+        "Chhota sa statement chahiye",
+        "Pichhle kuch entries print karo",
+        "Account ki summary bhejo"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.transfer_money.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.transfer_money",
+      "scenario_set": "v2",
+      "register": "neutral, routine obligation",
+      "text_scenario": "Your rent is due and you need to pay your landlord.",
+      "examples": [
+        "Makan malik ko rent bhejna hai",
+        "Kiraya transfer karna hai aaj",
+        "Landlord ko payment kar do"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.transfer_money.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.transfer_money",
+      "scenario_set": "v2",
+      "register": "neutral, routine obligation",
+      "text_scenario": "You owe a shopkeeper money and want to settle it digitally.",
+      "examples": [
+        "Dukaandaar ko paise pahuncha do",
+        "Udhar chukana hai, transfer karo",
+        "Uska hisaab clear kar do online"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.transfer_money.v2.s3",
+      "domain": "BNK",
+      "intent": "BNK.transfer_money",
+      "scenario_set": "v2",
+      "register": "neutral, routine obligation",
+      "text_scenario": "A relative asked for urgent help and you want to send money quickly.",
+      "examples": [
+        "Turant paise bhejne hain chacha ko",
+        "Emergency hai, amount transfer karo",
+        "Abhi ke abhi paisa pahunchao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.block_card.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.block_card",
+      "scenario_set": "v2",
+      "register": "URGENT, alarmed",
+      "text_scenario": "Your bag was stolen on a bus and your cards were inside it.",
+      "examples": [
+        "Bag chori ho gaya, saare cards rok do!",
+        "Chori ho gayi hai, card deactivate karo",
+        "Mera bag gaya, jaldi card rok do"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.block_card.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.block_card",
+      "scenario_set": "v2",
+      "register": "URGENT, alarmed",
+      "text_scenario": "Your card got stuck inside an ATM machine and you are worried someone will retrieve it.",
+      "examples": [
+        "Card machine mein fas gaya, band karo",
+        "ATM ne card kha liya, block karwao",
+        "Card nikla nahi, deactivate kar do"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.report_fraud.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.report_fraud",
+      "scenario_set": "v2",
+      "register": "upset, insistent",
+      "text_scenario": "You got a call from someone pretending to be from the bank and shared an OTP by mistake.",
+      "examples": [
+        "OTP share kar diya galti se, madad karo",
+        "Fake call aayi thi, paise gaye",
+        "Dhokha ho gaya mere saath"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.report_fraud.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.report_fraud",
+      "scenario_set": "v2",
+      "register": "upset, insistent",
+      "text_scenario": "Small amounts have been disappearing from your account repeatedly over several days.",
+      "examples": [
+        "Roz thode thode paise kat rahe hain",
+        "Baar baar amount nikal raha hai koi",
+        "Lagataar galat deduction ho raha hai"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.card_status.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.card_status",
+      "scenario_set": "v2",
+      "register": "neutral, following up",
+      "text_scenario": "Your old card expired last month and the replacement has not arrived.",
+      "examples": [
+        "Purana card expire ho gaya, naya kahan hai?",
+        "Replacement card aaya nahi abhi tak",
+        "Renew wala card kab pahunchega?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.card_status.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.card_status",
+      "scenario_set": "v2",
+      "register": "neutral, following up",
+      "text_scenario": "You were told the card was couriered but you have no tracking information.",
+      "examples": [
+        "Courier hua tha, kahan pahuncha?",
+        "Delivery ka pata karo card ka",
+        "Kab tak haath mein aayega?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.reset_pin.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.reset_pin",
+      "scenario_set": "v2",
+      "register": "neutral, mildly embarrassed",
+      "text_scenario": "You have not used your card in months and cannot recall the PIN at all.",
+      "examples": [
+        "Bahut din se use nahi kiya, pin yaad nahi",
+        "Pin dobara set karwana hai",
+        "Naya password banwa do card ka"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.reset_pin.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.reset_pin",
+      "scenario_set": "v2",
+      "register": "neutral, mildly embarrassed",
+      "text_scenario": "You entered the wrong PIN too many times and the card got locked.",
+      "examples": [
+        "Galat pin daal diya, card lock ho gaya",
+        "Zyada baar try kiya, ab unlock karo",
+        "Pin reset karna padega ab"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.loan_enquiry.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.loan_enquiry",
+      "scenario_set": "v2",
+      "register": "curious, cautious",
+      "text_scenario": "You are thinking of buying a two-wheeler and want to know your financing options.",
+      "examples": [
+        "Bike ke liye finance mil sakta hai?",
+        "Gaadi lene ke liye kya option hai?",
+        "Two wheeler pe loan hota hai kya?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.loan_enquiry.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.loan_enquiry",
+      "scenario_set": "v2",
+      "register": "curious, cautious",
+      "text_scenario": "Your child's college admission is coming up and you are exploring an education loan.",
+      "examples": [
+        "Padhai ke liye loan kaise milega?",
+        "Education loan ke baare mein bataiye",
+        "College fees ke liye finance chahiye"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.loan_enquiry.v2.s3",
+      "domain": "BNK",
+      "intent": "BNK.loan_enquiry",
+      "scenario_set": "v2",
+      "register": "curious, cautious",
+      "text_scenario": "You already have a loan and want to know how many instalments are left.",
+      "examples": [
+        "Kitni kisht baaki hai meri?",
+        "Loan kab tak khatam hoga?",
+        "Pending amount kitna reh gaya?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.bill_payment.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.bill_payment",
+      "scenario_set": "v2",
+      "register": "routine, slightly rushed",
+      "text_scenario": "The gas bill deadline is today and you do not want a late fee.",
+      "examples": [
+        "Gas ka bill aaj bharna hai",
+        "Last date hai, payment kar do",
+        "Bill jama karo aaj hi"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.bill_payment.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.bill_payment",
+      "scenario_set": "v2",
+      "register": "routine, slightly rushed",
+      "text_scenario": "Your broadband is about to be disconnected for non-payment.",
+      "examples": [
+        "Internet ka bill pending hai, bhar do",
+        "Wifi katne wala hai, payment karo",
+        "Broadband ka paisa jama karwao"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.branch_atm_locate.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.branch_atm_locate",
+      "scenario_set": "v2",
+      "register": "neutral, practical",
+      "text_scenario": "You are travelling in a new city and need to withdraw cash.",
+      "examples": [
+        "Naye sheher mein hoon, cash kahan milega?",
+        "Yahan paise nikalne ki jagah batao",
+        "Aas paas machine hai kya cash ke liye?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.branch_atm_locate.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.branch_atm_locate",
+      "scenario_set": "v2",
+      "register": "neutral, practical",
+      "text_scenario": "You need to submit documents in person and want to know timings before travelling.",
+      "examples": [
+        "Documents jama karne kahan jaunga?",
+        "Office kab khulta hai bank ka?",
+        "Kaunse din band rehta hai branch?"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.account_open.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.account_open",
+      "scenario_set": "v2",
+      "register": "curious, first-time",
+      "text_scenario": "You just started your first job and need an account for your salary.",
+      "examples": [
+        "Naukri lagi hai, salary account chahiye",
+        "Pehli baar account bana raha hoon",
+        "Salary ke liye khata kholna hai"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.account_open.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.account_open",
+      "scenario_set": "v2",
+      "register": "curious, first-time",
+      "text_scenario": "You want to open an account for your child.",
+      "examples": [
+        "Bachhe ke naam se khata khulwana hai",
+        "Minor ka account ban sakta hai?",
+        "Bete ke liye account chahiye"
+      ],
+      "is_out_of_scope": false
+    },
+    {
+      "scenario_id": "BNK.out_of_scope.v2.s1",
+      "domain": "BNK",
+      "intent": "BNK.out_of_scope",
+      "scenario_set": "v2",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker talks about something entirely personal and unrelated.",
+      "examples": [
+        "Sar dard ho raha hai bahut",
+        "Kal shaadi mein jana hai",
+        "Neend nahi aa rahi raat bhar"
+      ],
+      "is_out_of_scope": true
+    },
+    {
+      "scenario_id": "BNK.out_of_scope.v2.s2",
+      "domain": "BNK",
+      "intent": "BNK.out_of_scope",
+      "scenario_set": "v2",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker asks something from another domain — education, travel, or assistant.",
+      "examples": [
+        "Is chapter ka quiz le lo",
+        "Bus ka time batao",
+        "Volume thoda badha do"
+      ],
+      "is_out_of_scope": true
+    },
+    {
+      "scenario_id": "BNK.out_of_scope.v2.s3",
+      "domain": "BNK",
+      "intent": "BNK.out_of_scope",
+      "scenario_set": "v2",
+      "register": "casual — NEGATIVE examples",
+      "text_scenario": "Speaker responds with filler or an unclear half-sentence.",
+      "examples": [
+        "Arre wo kya tha",
+        "Ek minute ruko",
+        "Nahi nahi rehne do"
+      ],
+      "is_out_of_scope": true
+    }
+  ]
+}
