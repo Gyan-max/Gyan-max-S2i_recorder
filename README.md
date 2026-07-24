@@ -110,7 +110,7 @@ The system processes audio through multiple stages:
 - ✅ Proper speaker_id/device_id separation
 - ✅ Works completely offline (no server required)
 
-See **[PHASE5_COMPLETE.md](PHASE5_COMPLETE.md)** for full details and testing guide.
+See **[docs/FEATURES.md](docs/FEATURES.md)** for a complete tour of every volunteer and admin feature, plus local setup instructions.
 
 ## 🏗️ Architecture
 

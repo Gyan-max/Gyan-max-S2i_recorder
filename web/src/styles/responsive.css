@@ -1002,7 +1002,7 @@ body {
 .progress-diamond.active { box-shadow: 0 0 0 3px #e0e7ff; }
 .progress-diamond:not(.recorded) { cursor: pointer; }
 .recording-card { padding: clamp(1.2rem, 4vw, 2rem); margin-bottom: 0; }
-.task-header { max-width: none; margin: 0 0 1.35rem; text-align: left; }
+.task-header { display: block; max-width: none; margin: 0 0 1.35rem; text-align: left; }
 .task-meta { flex-direction: row; align-items: center; font-size: .78rem; }
 .scenario-name { margin: .8rem 0 .6rem; color: #536079; font-size: .9rem; font-weight: 700; text-transform: capitalize; }
 .prompt-label { display: block; color: #75819a; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
@@ -1401,6 +1401,17 @@ body {
   }
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  display: inline-flex;
+  animation: spin 0.8s linear infinite;
+}
+
 .card,
 .clip-card,
 .speaker-card {
@@ -1466,22 +1477,238 @@ textarea:focus-visible {
   }
 }
 
+/* Theme note: this app intentionally ships one calm, light, research-app
+   theme regardless of OS color-scheme preference (see LIGHT PRODUCT THEME
+   above) — a prior conditional "prefers-color-scheme: light" override lived
+   here and silently reset the body background for light-OS users only,
+   producing an inconsistent look. Removed; the unconditional theme above is
+   the single source of truth. */
+
 /* ============================================
-   DARK MODE (default) & LIGHT MODE SUPPORT
+   AUDIO PLAYER (recording review)
    ============================================ */
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg-page: #f8fafc;
-    --bg-card: rgba(255, 255, 255, 0.9);
-    --bg-elevated: rgba(255, 255, 255, 1);
-    --text-primary: #0f172a;
-    --text-secondary: #475569;
-    --text-muted: #64748b;
-    --border: rgba(0, 0, 0, 0.1);
+.audio-player {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.audio-player > audio {
+  display: none;
+}
+
+.audio-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.audio-play-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.25);
+}
+
+.audio-play-btn:hover {
+  transform: scale(1.05);
+}
+
+.audio-play-btn:active {
+  transform: scale(0.96);
+}
+
+.audio-seek {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.audio-seek::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--primary) 0%,
+    var(--primary) var(--audio-progress, 0%),
+    var(--border) var(--audio-progress, 0%),
+    var(--border) 100%
+  );
+}
+
+.audio-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--primary);
+  box-shadow: 0 1px 4px rgba(23, 32, 51, 0.25);
+}
+
+.audio-seek::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.audio-seek::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.audio-seek::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--primary);
+  box-shadow: 0 1px 4px rgba(23, 32, 51, 0.25);
+}
+
+.audio-seek:focus-visible {
+  outline: 3px solid rgba(79, 70, 229, 0.35);
+  outline-offset: 3px;
+}
+
+.audio-time {
+  flex: none;
+  min-width: 84px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .audio-time {
+    min-width: 72px;
+    font-size: 0.78rem;
   }
-  
-  body {
-    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  }
+}
+
+/* ============================================
+   ADMIN PANEL — layout & status variants
+   (AdminPanel.tsx previously inlined styles against
+   stale dark-theme tokens; these wire it onto the
+   same design system as the rest of the app)
+   ============================================ */
+
+.admin-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.admin-topbar h1 {
+  font-size: 1.4rem;
+  margin-bottom: 2px;
+}
+
+.admin-topbar p {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.admin-topbar-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.admin-topbar-actions .btn {
+  width: auto;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.admin-tabs .btn {
+  width: auto;
+}
+
+.admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.speaker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.stat-value.tone-primary { color: var(--primary); }
+.stat-value.tone-accent { color: var(--accent); }
+.stat-value.tone-info { color: #0891b2; }
+.stat-value.tone-success { color: var(--success); }
+.stat-value.tone-danger { color: var(--danger); }
+.stat-value.tone-warning { color: var(--warning); }
+
+.status-badge.confirmed { background: rgba(79, 70, 229, 0.14); color: var(--primary); }
+.status-badge.processing { background: rgba(217, 119, 6, 0.14); color: var(--warning); }
+.status-badge.processed { background: rgba(5, 150, 105, 0.14); color: var(--success); }
+.status-badge.rejected { background: rgba(225, 29, 72, 0.14); color: var(--danger); }
+.status-badge.discarded { background: var(--bg-elevated); color: var(--text-muted); }
+
+.admin-demographics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+}
+
+.admin-demographics .label {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-demographics .value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.admin-dates {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  margin-bottom: var(--space-3);
+}
+
+.admin-audio-loading {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
 }

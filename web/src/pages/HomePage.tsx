@@ -3,6 +3,7 @@ import { Mic, RotateCcw, Check, Users, RefreshCw, Headphones, Lock, WifiOff, Che
 import { SpeakerResponse, SpeakerRosterItem, SessionBatchInfo, TaskResponse } from '../types';
 import { saveAudioBlob, enqueueUpload, getUploadQueue, dequeueUpload } from '../db';
 import { API_BASE } from '../config';
+import AudioPlayer from '../components/AudioPlayer';
 
 interface HomePageProps {
   deviceId: string;
@@ -785,9 +786,9 @@ export default function HomePage({
 
             {(recordingState === 'idle' || recordingState === 'recording') ? (
               <div className="record-section">
-                <p className="record-hint">
-                  {recordingState === 'recording' 
-                    ? 'Recording in progress. Select stop when you are finished.' 
+                <p className="record-hint" aria-live="polite">
+                  {recordingState === 'recording'
+                    ? 'Recording in progress. Select stop when you are finished.'
                     : 'Ready when you are. Start recording when you’re comfortable.'}
                 </p>
                 {recordingError && <div className="recording-error" role="alert">{recordingError}</div>}
@@ -815,18 +816,17 @@ export default function HomePage({
                     </div>
                     {hasListened ? <span className="review-status complete"><CheckCircle size={16} />Reviewed</span> : <span className="review-status"><Headphones size={16} />Listen required</span>}
                   </div>
-                  <audio
+                  <AudioPlayer
                     ref={audioPlayerRef}
                     src={audioUrl || ''}
-                    controls
                     onPlay={() => setIsPlayingBack(true)}
                     onPause={() => setIsPlayingBack(false)}
-                    onTimeUpdate={(event) => {
-                      furthestPlaybackRef.current = Math.max(furthestPlaybackRef.current, event.currentTarget.currentTime);
+                    onTimeUpdate={(currentTime) => {
+                      furthestPlaybackRef.current = Math.max(furthestPlaybackRef.current, currentTime);
                     }}
-                    onSeeking={(event) => {
-                      if (!hasListened && event.currentTarget.currentTime > furthestPlaybackRef.current + 0.75) {
-                        event.currentTarget.currentTime = furthestPlaybackRef.current;
+                    onSeekAttempt={(attemptedTime) => {
+                      if (!hasListened && attemptedTime > furthestPlaybackRef.current + 0.75) {
+                        return furthestPlaybackRef.current;
                       }
                     }}
                     onEnded={() => { setIsPlayingBack(false); setHasListened(true); }}
