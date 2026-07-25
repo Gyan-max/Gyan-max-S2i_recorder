@@ -92,7 +92,8 @@ async def init_clip(
         scenario_set=scenario.scenario_set,
         scenario_no=task.scenario_no,
         example_no=task.example_no,
-        clip_id=clip_id
+        clip_id=clip_id,
+        speaker_name=speaker.name or ""
     )
     raw_path = get_raw_path(clip_id, req.mime_type)
     

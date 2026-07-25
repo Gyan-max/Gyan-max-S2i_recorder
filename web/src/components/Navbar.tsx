@@ -47,7 +47,7 @@ export default function Navbar({ isAdmin, adminToken, currentSpeaker, onLogout, 
               {currentSpeaker && (
                 <span className="nav-link user-badge" style={{ cursor: 'default' }}>
                   <Users size={18} />
-                  <span>{currentSpeaker.speaker_id}</span>
+                  <span>{currentSpeaker.name || currentSpeaker.speaker_id}</span>
                 </span>
               )}
             </>
@@ -69,7 +69,7 @@ export default function Navbar({ isAdmin, adminToken, currentSpeaker, onLogout, 
           {currentSpeaker && !isAdmin && (
             <div className="user-badge">
               <Users size={16} />
-              <span>{currentSpeaker.speaker_id}</span>
+              <span>{currentSpeaker.name || currentSpeaker.speaker_id}</span>
             </div>
           )}
           
@@ -121,7 +121,7 @@ export default function Navbar({ isAdmin, adminToken, currentSpeaker, onLogout, 
               {currentSpeaker && (
                 <span className="mobile-link" style={{ opacity: 0.7 }}>
                   <Users size={18} />
-                  <span>{currentSpeaker.speaker_id}</span>
+                  <span>{currentSpeaker.name || currentSpeaker.speaker_id}</span>
                 </span>
               )}
             </>

@@ -247,6 +247,7 @@ export default function HomePage({
   const switchToSpeaker = (speaker: SpeakerRosterItem) => {
     const speakerResponse: SpeakerResponse = {
       speaker_id: speaker.speaker_id,
+      name: speaker.name,
       token: currentSpeaker?.token || '',
       age_band: speaker.age_band,
       consent_at: new Date().toISOString()
@@ -268,6 +269,7 @@ export default function HomePage({
           'X-Device-ID': deviceId
         },
         body: JSON.stringify({
+          name: fullName || undefined,
           age, gender, l1, region,
           consent_version: 'consent-v1'
         })
@@ -618,9 +620,9 @@ export default function HomePage({
                   onClick={() => switchToSpeaker(s)}
                 >
                   <Users size={18} />
-                  <span>{s.speaker_id}</span>
-                  <span style={{ opacity: 0.6, fontSize: '0.85rem' }}>
-                    ({s.gender}, {s.age_band})
+                  <span>{s.name || s.speaker_id}</span>
+                  <span style={{ opacity: 0.6, fontSize: '0.85rem', marginLeft: 'auto' }}>
+                    {s.speaker_id} &middot; {s.gender}, {s.age_band}
                   </span>
                 </button>
               ))}
@@ -784,7 +786,7 @@ export default function HomePage({
             <Users size={48} className="icon-accent" />
             <span className="eyebrow">Welcome back</span>
             <h1>Are you ready to continue?</h1>
-            <p>Confirm that you are recording with participant profile <strong>{currentSpeaker.speaker_id}</strong>.</p>
+            <p>Confirm that you are recording as <strong>{currentSpeaker.name || currentSpeaker.speaker_id}</strong>.</p>
             <div className="button-group">
               <button className="btn btn-primary" onClick={() => setShowSpeakerConfirm(false)}>
                 Yes, continue

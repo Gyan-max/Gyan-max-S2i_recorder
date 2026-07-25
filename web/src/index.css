@@ -377,6 +377,42 @@ p {
   }
 }
 
+/* Pill-style choice groups */
+.pill-choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill-choice {
+  flex: 1 1 0;
+  min-width: 80px;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-xl);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.pill-choice:hover {
+  background: var(--bg-elevated);
+  border-color: var(--color-accent);
+  color: var(--text-primary);
+}
+
+.pill-choice.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+}
+
 /* Onboarding Form fields */
 .form-group {
   display: flex;
