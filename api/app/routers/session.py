@@ -159,7 +159,8 @@ async def get_next_session_batch(
         domain=domain_assigned,
         batch_no=batch_no,
         tasks=task_responses,
-        progress=progress
+        progress=progress,
+        assigned_domain=speaker.assigned_domain
     )
 
     return SessionResponse(batch=batch_info)

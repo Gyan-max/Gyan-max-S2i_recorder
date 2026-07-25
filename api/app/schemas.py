@@ -56,6 +56,7 @@ class SpeakerResponse(BaseModel):
     token: str
     age_band: str
     consent_at: datetime
+    assigned_domain: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -104,6 +105,7 @@ class SessionBatchInfo(BaseModel):
     batch_no: int
     tasks: List[TaskResponse]
     progress: ProgressInfo
+    assigned_domain: Optional[str] = None
 
 class SessionResponse(BaseModel):
     batch: SessionBatchInfo
@@ -212,6 +214,24 @@ class QRItem(BaseModel):
 
 class QRGenerateResponse(BaseModel):
     codes: List[QRItem]
+
+class SpeakerClipItem(BaseModel):
+    clip_id: str
+    task_id: str
+    domain: str
+    intent: str
+    scenario_id: str
+    filename: Optional[str]
+    duration_s: Optional[float]
+    transcript_final: Optional[str]
+    status: str
+    created_at: datetime
+
+class SpeakerClipsResponse(BaseModel):
+    clips: List[SpeakerClipItem]
+
+class AssignDomainRequest(BaseModel):
+    domain: str
 
 class AdminCoverageItem(BaseModel):
     domain: str

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mic, RotateCcw, Check, Users, RefreshCw, Headphones, Lock, WifiOff, CheckCircle, Sparkles, ShieldCheck } from 'lucide-react';
+import { Mic, RotateCcw, Check, Users, RefreshCw, Headphones, Lock, WifiOff, CheckCircle, Sparkles, ShieldCheck, Download, FileAudio, ChevronDown, ChevronUp } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { SpeakerResponse, SpeakerRosterItem, SessionBatchInfo, TaskResponse } from '../types';
+import { SpeakerResponse, SpeakerRosterItem, SessionBatchInfo, TaskResponse, SpeakerClipItem } from '../types';
 import { saveAudioBlob, enqueueUpload, getUploadQueue, dequeueUpload } from '../db';
 import { API_BASE } from '../config';
 import AudioPlayer from '../components/AudioPlayer';
@@ -54,6 +54,12 @@ export default function HomePage({
   const [isConfirming, setIsConfirming] = useState(false);
   const [isRedoing, setIsRedoing] = useState(false);
   const [showBatchCompleteModal, setShowBatchCompleteModal] = useState(false);
+
+  // Downloads
+  const [myClips, setMyClips] = useState<SpeakerClipItem[]>([]);
+  const [showDownloads, setShowDownloads] = useState(false);
+  const [loadingClips, setLoadingClips] = useState(false);
+  const [showExamples, setShowExamples] = useState(true);
 
   // Onboarding Form
   const [fullName, setFullName] = useState<string>('');
@@ -221,6 +227,11 @@ export default function HomePage({
       if (res.ok) {
         const data = await res.json();
         setSessionBatch(data.batch);
+
+        // If speaker has an assigned domain, sync selectedDomain
+        if (data.batch.assigned_domain) {
+          setSelectedDomain(data.batch.assigned_domain);
+        }
 
         // Check if we need to jump to a specific example from URL
         const searchParams = new URLSearchParams(location.search);
@@ -599,6 +610,46 @@ export default function HomePage({
     recordingStartTimeRef.current = null;
   };
 
+  const fetchMyClips = async () => {
+    if (!currentSpeaker) return;
+    setLoadingClips(true);
+    try {
+      const res = await fetch(`${API_BASE}/clips/my`, {
+        headers: { 'Authorization': `Bearer ${currentSpeaker.token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMyClips(data.clips);
+      }
+    } catch (e) {
+      console.error('Failed to fetch clips', e);
+    } finally {
+      setLoadingClips(false);
+    }
+  };
+
+  const downloadClip = async (clipId: string, filename: string) => {
+    if (!currentSpeaker) return;
+    try {
+      const res = await fetch(`${API_BASE}/clips/${clipId}/download`, {
+        headers: { 'Authorization': `Bearer ${currentSpeaker.token}` }
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename || `recording_${clipId.slice(0, 8)}.wav`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (e) {
+      console.error('Download failed', e);
+    }
+  };
+
   const activeTask: TaskResponse | undefined = sessionBatch?.tasks[currentTaskIndex];
 
   // If showing speaker roster for switching
@@ -826,31 +877,44 @@ export default function HomePage({
           </div>
         )}
 
-        {/* Domain Selector */}
-        <div className="card domain-card glass-card">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">Choose a topic</span>
-              <h2>Pick the type of situation you’d like to speak about.</h2>
+        {/* Domain Selector - hidden when admin assigned a domain */}
+        {sessionBatch?.assigned_domain ? (
+          <div className="card domain-card glass-card assigned-domain">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">Assigned Topic</span>
+                <h2>You are recording for: <strong>{
+                  {BNK: '🏦 Banking', EDU: '🎓 Education', TRV: '✈️ Travel', VAS: '🎙️ Assistant'}[sessionBatch.assigned_domain] || sessionBatch.assigned_domain
+                }</strong></h2>
+              </div>
             </div>
           </div>
-          <div className="domain-selector">
-            {[
-              { id: 'BNK', label: '🏦 Banking' },
-              { id: 'EDU', label: '🎓 Education' },
-              { id: 'TRV', label: '✈️ Travel' },
-              { id: 'VAS', label: '🎙️ Assistant' }
-            ].map(dom => (
-              <button
-                key={dom.id}
-                className={`domain-btn ${selectedDomain === dom.id ? 'active' : ''}`}
-                onClick={() => setSelectedDomain(dom.id)}
-              >
-                {dom.label}
-              </button>
-            ))}
+        ) : (
+          <div className="card domain-card glass-card">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">Choose a topic</span>
+                <h2>Pick the type of situation you’d like to speak about.</h2>
+              </div>
+            </div>
+            <div className="domain-selector">
+              {[
+                { id: 'BNK', label: '🏦 Banking' },
+                { id: 'EDU', label: '🎓 Education' },
+                { id: 'TRV', label: '✈️ Travel' },
+                { id: 'VAS', label: '🎙️ Assistant' }
+              ].map(dom => (
+                <button
+                  key={dom.id}
+                  className={`domain-btn ${selectedDomain === dom.id ? 'active' : ''}`}
+                  onClick={() => setSelectedDomain(dom.id)}
+                >
+                  {dom.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Progress */}
         {sessionBatch && (
@@ -902,6 +966,28 @@ export default function HomePage({
                 <span className="prompt-label">YOUR PROMPT</span>
                 <h1 id="task-title">{activeTask.text_hi}</h1>
               </div>
+
+              {activeTask.examples && activeTask.examples.length > 0 && (
+                <div className="examples-section">
+                  <div className="examples-header" onClick={() => setShowExamples(!showExamples)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span className="examples-label">
+                      <Sparkles size={14} style={{ display: 'inline', marginRight: 6 }} />
+                      Example phrasings (say one of these)
+                    </span>
+                    {showExamples ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </div>
+                  {showExamples && (
+                    <div className="examples-list">
+                      {activeTask.examples.map((ex, i) => (
+                        <div key={i} className="example-item">
+                          <span className="example-number">{i + 1}</span>
+                          <span className="example-text">{ex}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {(recordingState === 'idle' || recordingState === 'recording') ? (
@@ -993,6 +1079,51 @@ export default function HomePage({
 
         {!sessionBatch && !showOnboarding && !showSpeakerConfirm && (
           <div className="card loading-task" role="status">Loading your next recording task…</div>
+        )}
+
+        {/* My Recordings Section - Download */}
+        {currentSpeaker && (
+          <section className="card glass-card my-recordings-section">
+            <div
+              className="my-recordings-header"
+              onClick={() => { setShowDownloads(!showDownloads); if (!showDownloads) fetchMyClips(); }}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileAudio size={18} />
+                <h3 style={{ margin: 0 }}>My Recordings</h3>
+              </div>
+              {showDownloads ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </div>
+
+            {showDownloads && (
+              <div className="my-recordings-list">
+                {loadingClips ? (
+                  <p style={{ padding: '16px 0', color: 'var(--text-secondary)' }}>Loading your recordings...</p>
+                ) : myClips.length === 0 ? (
+                  <p style={{ padding: '16px 0', color: 'var(--text-secondary)' }}>No recordings yet. Start recording above!</p>
+                ) : (
+                  myClips.map(clip => (
+                    <div key={clip.clip_id} className="my-recording-item">
+                      <div className="recording-item-info">
+                        <span className="recording-item-intent">{clip.intent.replace(/^[A-Z]+\./, '').replace(/_/g, ' ')}</span>
+                        <span className="recording-item-meta">
+                          {clip.domain} &middot; {clip.status} &middot; {clip.duration_s ? `${clip.duration_s.toFixed(1)}s` : 'N/A'}
+                        </span>
+                      </div>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => downloadClip(clip.clip_id, clip.filename || `recording_${clip.clip_id.slice(0, 8)}.wav`)}
+                      >
+                        <Download size={14} />
+                        Download
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </section>
         )}
 
         {/* Batch Complete Celebration Modal */}

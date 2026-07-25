@@ -44,6 +44,20 @@ export interface SessionBatchInfo {
   batch_no: number;
   tasks: TaskResponse[];
   progress: ProgressInfo;
+  assigned_domain?: string | null;
+}
+
+export interface SpeakerClipItem {
+  clip_id: string;
+  task_id: string;
+  domain: string;
+  intent: string;
+  scenario_id: string;
+  filename: string | null;
+  duration_s: number | null;
+  transcript_final: string | null;
+  status: string;
+  created_at: string;
 }
 
 export interface ClipInitResponse {

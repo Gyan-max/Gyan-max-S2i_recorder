@@ -34,6 +34,7 @@ class Speaker(Base):
     consent_at = Column(DateTime(timezone=True), nullable=True)
     consent_version = Column(String, nullable=True)
     withdrawn_at = Column(DateTime(timezone=True), nullable=True)
+    assigned_domain = Column(String, nullable=True)  # Domain assigned by admin (BNK, EDU, TRV, VAS)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 

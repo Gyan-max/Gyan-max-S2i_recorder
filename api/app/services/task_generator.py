@@ -25,11 +25,19 @@ async def get_or_create_session_batch(
     Returns:
         (domain, batch_no, list_of_tasks)
     """
+    # 0. Check if the speaker has an assigned domain (set by admin)
+    speaker_stmt = select(Speaker).where(Speaker.speaker_id == speaker_id)
+    speaker_res = await db.execute(speaker_stmt)
+    speaker = speaker_res.scalar()
+    assigned_domain = speaker.assigned_domain if speaker else None
+
+    # If speaker has an assigned domain, force it
+    effective_domain = assigned_domain or requested_domain
+
     # 1. Check if the speaker has any pending tasks (in-progress batch)
-    # Only return pending tasks if they match the requested domain
     pending_conditions = [Task.speaker_id == speaker_id, Task.status == "pending"]
-    if requested_domain:
-        pending_conditions.append(Task.domain == requested_domain)
+    if effective_domain:
+        pending_conditions.append(Task.domain == effective_domain)
     pending_stmt = select(Task).where(*pending_conditions).order_by(Task.intent, Task.scenario_no, Task.example_no)
     
     result = await db.execute(pending_stmt)
@@ -41,7 +49,7 @@ async def get_or_create_session_batch(
         return first_task.domain, first_task.batch_no, pending_tasks
 
     # 2. No pending batch. Determine which domain to run.
-    domain = requested_domain
+    domain = effective_domain
     if not domain:
         # Pick the domain with the lowest coverage globally
         # Coverage is defined by the number of confirmed/processed clips

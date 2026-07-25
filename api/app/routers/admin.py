@@ -17,7 +17,7 @@ from ..models import Speaker, Clip, Task, Scenario, DeviceSpeaker, WithdrawalAud
 from ..schemas import (
     AdminLoginRequest, AdminLoginResponse, AdminStatsResponse, AdminCoverageResponse,
     AdminCoverageItem, ClipReviewResponse, ClipReviewItem, ClipReviewActionRequest,
-    QRGenerateResponse, QRItem
+    QRGenerateResponse, QRItem, AssignDomainRequest
 )
 from ..auth import create_admin_token, verify_admin_credentials, get_current_admin
 from ..services.storage import get_export_path
@@ -277,6 +277,77 @@ async def withdraw_speaker(
         "clips_deleted": clips_deleted,
         "tasks_deleted": tasks_deleted
     }
+
+@router.post("/speakers/{speaker_id}/assign-domain")
+async def assign_speaker_domain(
+    speaker_id: str,
+    req: AssignDomainRequest,
+    admin: str = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Assigns a recording domain to a speaker. The speaker will only see tasks from this domain."""
+    allowed_domains = {"BNK", "EDU", "TRV", "VAS"}
+    if req.domain not in allowed_domains:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_DOMAIN", "message": f"Domain must be one of {allowed_domains}"}
+        )
+
+    spk_stmt = select(Speaker).where(Speaker.speaker_id == speaker_id)
+    spk_res = await db.execute(spk_stmt)
+    speaker = spk_res.scalar()
+
+    if not speaker:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "SPEAKER_NOT_FOUND", "message": "Speaker not found"}
+        )
+
+    speaker.assigned_domain = req.domain
+    await db.commit()
+
+    return {"message": f"Domain '{req.domain}' assigned to speaker {speaker_id}", "speaker_id": speaker_id, "assigned_domain": req.domain}
+
+@router.delete("/speakers/{speaker_id}/assign-domain")
+async def remove_speaker_domain_assignment(
+    speaker_id: str,
+    admin: str = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Removes the domain assignment from a speaker."""
+    spk_stmt = select(Speaker).where(Speaker.speaker_id == speaker_id)
+    spk_res = await db.execute(spk_stmt)
+    speaker = spk_res.scalar()
+
+    if not speaker:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "SPEAKER_NOT_FOUND", "message": "Speaker not found"}
+        )
+
+    speaker.assigned_domain = None
+    await db.commit()
+
+    return {"message": f"Domain assignment removed for speaker {speaker_id}", "speaker_id": speaker_id}
+
+@router.get("/speakers/{speaker_id}/assignment")
+async def get_speaker_domain_assignment(
+    speaker_id: str,
+    admin: str = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Gets the domain assignment for a speaker."""
+    spk_stmt = select(Speaker).where(Speaker.speaker_id == speaker_id)
+    spk_res = await db.execute(spk_stmt)
+    speaker = spk_res.scalar()
+
+    if not speaker:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "SPEAKER_NOT_FOUND", "message": "Speaker not found"}
+        )
+
+    return {"speaker_id": speaker_id, "assigned_domain": speaker.assigned_domain}
 
 @router.get("/export")
 async def export_dataset(
@@ -829,7 +900,8 @@ async def get_speakers_detailed(
             "confirmed_clips": row.confirmed_clips or 0,
             "processed_clips": row.processed_clips or 0,
             "rejected_clips": row.rejected_clips or 0,
-            "avg_duration": round(row.avg_duration, 2) if row.avg_duration else 0.0
+            "avg_duration": round(row.avg_duration, 2) if row.avg_duration else 0.0,
+            "assigned_domain": row.Speaker.assigned_domain
         })
     
     return {"speakers": speakers_list}

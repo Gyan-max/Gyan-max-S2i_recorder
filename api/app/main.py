@@ -43,6 +43,20 @@ async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
+    # Migration: add assigned_domain column if missing
+    try:
+        from sqlalchemy import inspect, text as sa_text
+        async with engine.begin() as conn:
+            def _add_column(sync_conn):
+                inspector = inspect(sync_conn)
+                columns = [col['name'] for col in inspector.get_columns('speakers')]
+                if 'assigned_domain' not in columns:
+                    sync_conn.execute(sa_text('ALTER TABLE speakers ADD COLUMN assigned_domain VARCHAR'))
+                    logger.info("Migration: added assigned_domain column to speakers table")
+            await conn.run_sync(_add_column)
+    except Exception as e:
+        logger.warning(f"Migration could not add assigned_domain column: {e}")
+    
     logger.info("Phase 5 Startup: Seeding scenarios...")
     async with AsyncSessionLocal() as db:
         try:

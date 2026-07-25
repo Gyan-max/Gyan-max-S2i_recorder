@@ -9,9 +9,9 @@ from ..database import get_db
 from ..models import Clip, Task, Scenario, Speaker
 from ..schemas import (
     ClipInitRequest, ClipInitResponse, ClipConfirmRequest, ClipConfirmResponse,
-    ClipDiscardResponse, TaskResponse
+    ClipDiscardResponse, TaskResponse, SpeakerClipItem, SpeakerClipsResponse
 )
-from ..auth import get_current_speaker_with_consent, verify_device
+from ..auth import get_current_speaker_with_consent, verify_device, get_current_speaker
 from ..services.naming import generate_canonical_filename
 from ..services.storage import get_raw_path
 from ..services.audio_processor import process_clip_background
@@ -381,4 +381,73 @@ async def discard_clip(
         clip_id=clip_id,
         status="discarded",
         task=task_resp
+    )
+
+@router.get("/my", response_model=SpeakerClipsResponse)
+async def get_my_clips(
+    speaker: Speaker = Depends(get_current_speaker_with_consent),
+    db: AsyncSession = Depends(get_db)
+):
+    """Returns all clips for the authenticated speaker."""
+    stmt = (
+        select(Clip, Task)
+        .join(Task, Clip.task_id == Task.task_id)
+        .where(Clip.speaker_id == speaker.speaker_id)
+        .order_by(Clip.created_at.desc())
+    )
+    res = await db.execute(stmt)
+    rows = res.all()
+
+    items = []
+    for clip, task in rows:
+        items.append(
+            SpeakerClipItem(
+                clip_id=clip.clip_id,
+                task_id=clip.task_id,
+                domain=task.domain,
+                intent=task.intent,
+                scenario_id=task.scenario_id,
+                filename=clip.filename,
+                duration_s=clip.duration_s,
+                transcript_final=clip.transcript_final or clip.transcript_provisional,
+                status=clip.status,
+                created_at=clip.created_at
+            )
+        )
+
+    return SpeakerClipsResponse(clips=items)
+
+@router.get("/{clip_id}/download")
+async def download_my_clip(
+    clip_id: str,
+    speaker: Speaker = Depends(get_current_speaker_with_consent),
+    db: AsyncSession = Depends(get_db)
+):
+    """Download a specific clip's audio file. Only the owning speaker can download."""
+    stmt = select(Clip).where(Clip.clip_id == clip_id)
+    res = await db.execute(stmt)
+    clip = res.scalar()
+
+    if not clip:
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    if clip.speaker_id != speaker.speaker_id:
+        raise HTTPException(status_code=403, detail="Not authorized to download this clip")
+
+    # Try processed WAV first, then raw
+    audio_path = None
+    if clip.wav_path and os.path.exists(clip.wav_path):
+        audio_path = clip.wav_path
+    elif clip.raw_path and os.path.exists(clip.raw_path):
+        audio_path = clip.raw_path
+
+    if not audio_path:
+        raise HTTPException(status_code=404, detail="Audio file not found")
+
+    filename = clip.filename or f"{clip_id}.wav"
+    return FileResponse(
+        audio_path,
+        media_type="audio/wav" if audio_path.endswith(".wav") else "audio/webm",
+        filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )

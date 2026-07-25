@@ -55,14 +55,8 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
   const [editingTranscriptId, setEditingTranscriptId] = useState<string | null>(null);
   const [editedTranscriptText, setEditedTranscriptText] = useState<string>('');
 
-  // Admin Task Assignment State
-  const [assignedPrompts, setAssignedPrompts] = useState<Record<string, string>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('admin_assigned_prompts') || '{}');
-    } catch {
-      return {};
-    }
-  });
+  // Admin Task Assignment State (uses server-side storage)
+  const [assignedPrompts, setAssignedPrompts] = useState<Record<string, string>>({});
 
   const headers = { 'Authorization': `Bearer ${adminToken}` };
 
@@ -140,6 +134,11 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
       if (res.ok) {
         const data = await res.json();
         setSpeakers(data.speakers);
+        const assignments: Record<string, string> = {};
+        data.speakers.forEach((s: any) => {
+          if (s.assigned_domain) assignments[s.speaker_id] = s.assigned_domain;
+        });
+        setAssignedPrompts(assignments);
       } else if (res.status === 401) handleUnauthorized();
     } catch (e) {
       console.error('Failed to fetch speakers:', e);
@@ -188,11 +187,51 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
     }
   };
 
-  const handleAssignPromptToSpeaker = (speakerId: string, domain: string) => {
-    const updated = { ...assignedPrompts, [speakerId]: domain };
-    setAssignedPrompts(updated);
-    localStorage.setItem('admin_assigned_prompts', JSON.stringify(updated));
-    alert(`Assigned ${domain} domain prompts to speaker ${speakerId}`);
+  const handleAssignPromptToSpeaker = async (speakerId: string, domain: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/speakers/${speakerId}/assign-domain`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain })
+      });
+      if (res.ok) {
+        setAssignedPrompts(prev => ({ ...prev, [speakerId]: domain }));
+        fetchSpeakers();
+        alert(`Assigned ${domain} domain to speaker ${speakerId}`);
+      } else if (res.status === 401) {
+        handleUnauthorized();
+      } else {
+        alert('Failed to assign domain');
+      }
+    } catch (e) {
+      console.error('Failed to assign domain:', e);
+      alert('Failed to assign domain');
+    }
+  };
+
+  const handleRemoveDomainAssignment = async (speakerId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/speakers/${speakerId}/assign-domain`, {
+        method: 'DELETE',
+        headers
+      });
+      if (res.ok) {
+        setAssignedPrompts(prev => {
+          const updated = { ...prev };
+          delete updated[speakerId];
+          return updated;
+        });
+        fetchSpeakers();
+        alert(`Removed domain assignment for speaker ${speakerId}`);
+      } else if (res.status === 401) {
+        handleUnauthorized();
+      } else {
+        alert('Failed to remove domain assignment');
+      }
+    } catch (e) {
+      console.error('Failed to remove domain assignment:', e);
+      alert('Failed to remove domain assignment');
+    }
   };
 
   const handleBatchAction = async (action: 'accept' | 'reject') => {
@@ -857,19 +896,32 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
                       <p className="clip-meta">{spk.gender} • {spk.age_band} • {spk.l1} ({spk.region})</p>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <span className="transcript-label" style={{ margin: 0 }}>Assigned Domain:</span>
                       <select 
                         className="form-select"
                         style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
-                        value={assignedPrompts[spk.speaker_id] || 'BNK'}
-                        onChange={(e) => handleAssignPromptToSpeaker(spk.speaker_id, e.target.value)}
+                        value={assignedPrompts[spk.speaker_id] || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val) handleAssignPromptToSpeaker(spk.speaker_id, val);
+                        }}
                       >
+                        <option value="">-- None --</option>
                         <option value="BNK">🏦 Banking (BNK)</option>
                         <option value="EDU">🎓 Education (EDU)</option>
                         <option value="TRV">✈️ Travel (TRV)</option>
                         <option value="VAS">🎙️ Assistant (VAS)</option>
                       </select>
+                      {assignedPrompts[spk.speaker_id] && (
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleRemoveDomainAssignment(spk.speaker_id)}
+                          title="Remove domain assignment"
+                        >
+                          <X size={14} /> Remove
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -918,7 +970,12 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
                 <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>
                   <Target size={14} style={{ display: 'inline', marginRight: 4 }} /> Assign Target Recording Domain
                 </h4>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {assignedPrompts[inspectorSpeaker.speaker_id] && (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                    Currently assigned: <strong style={{ color: 'var(--accent)' }}>{assignedPrompts[inspectorSpeaker.speaker_id]}</strong>
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                   {['BNK', 'EDU', 'TRV', 'VAS'].map(dom => (
                     <button
                       key={dom}
@@ -928,6 +985,14 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
                       {dom === 'BNK' ? '🏦 Banking' : dom === 'EDU' ? '🎓 Education' : dom === 'TRV' ? '✈️ Travel' : '🎙️ Assistant'}
                     </button>
                   ))}
+                  {assignedPrompts[inspectorSpeaker.speaker_id] && (
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleRemoveDomainAssignment(inspectorSpeaker.speaker_id)}
+                    >
+                      <X size={14} /> Remove assignment
+                    </button>
+                  )}
                 </div>
               </div>
 
