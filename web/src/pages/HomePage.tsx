@@ -924,6 +924,55 @@ export default function HomePage({
 
 
 
+        {/* Scenario Progress Grid — one card per scenario (3 examples each) */}
+        {sessionBatch && activeTask && (() => {
+          const flatIdxMap = new Map<string, number>();
+          sessionBatch.tasks.forEach((t, i) => flatIdxMap.set(t.task_id, i));
+
+          // Group tasks by (intent, scenario_no) → one scenario = 3 examples
+          const scenarioMap = new Map<string, { tasks: typeof sessionBatch.tasks; intent: string; scenario_no: number }>();
+          sessionBatch.tasks.forEach(t => {
+            const key = `${t.intent}::${t.scenario_no}`;
+            if (!scenarioMap.has(key)) scenarioMap.set(key, { tasks: [], intent: t.intent, scenario_no: t.scenario_no });
+            scenarioMap.get(key)!.tasks.push(t);
+          });
+          const scenarioGroups = Array.from(scenarioMap.entries()).sort(([a], [b]) => a.localeCompare(b));
+
+          return (
+            <section className="card task-progress glass-card" aria-label="Scenario progress">
+              <div className="progress-header-row">
+                <span className="progress-label">Scenarios</span>
+              </div>
+              <div className="scenario-progress-grid">
+                {scenarioGroups.map(([key, group]) => {
+                  const recordedCount = group.tasks.filter(t => t.status === 'recorded').length;
+                  const isCurrent = group.tasks.some(t => t.task_id === activeTask?.task_id);
+                  const isDone = recordedCount === group.tasks.length;
+                  const intentLabel = group.intent.replace(/^[A-Z]+\./, '').replace(/_/g, ' ');
+
+                  const firstPending = group.tasks.find(t => t.status === 'pending');
+                  const clickIdx = firstPending ? flatIdxMap.get(firstPending.task_id) : flatIdxMap.get(group.tasks[0].task_id);
+
+                  return (
+                    <div
+                      key={key}
+                      className={`scenario-card ${isDone ? 'done' : ''} ${isCurrent ? 'current' : ''}`}
+                      onClick={() => clickIdx !== undefined && setCurrentTaskIndex(clickIdx)}
+                      role="button"
+                      tabIndex={0}
+                      title={`${intentLabel} — sc${group.scenario_no}: ${recordedCount}/${group.tasks.length} done`}
+                    >
+                      <span className="sc-intent">{intentLabel}</span>
+                      <span className="sc-id">sc{group.scenario_no}</span>
+                      <span className="sc-progress">{recordedCount}/{group.tasks.length}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })()}
+
         {/* Scenario Complete Celebration */}
         {showScenarioComplete && (
           <section className="card scenario-complete-card glass-card fade-in">
@@ -940,19 +989,20 @@ export default function HomePage({
         {activeTask && !showScenarioComplete && (
           <section className="card card-lg recording-card glass-card fade-in" aria-labelledby="task-title">
             <div className="task-header">
+              {/* Intent — big, on top */}
+              <div className="intent-header-row">
+                <span className="intent-label">INTENT</span>
+                <h2 className="intent-name">{activeTask.intent.replace(/^[A-Z]+\./, '').replace(/_/g, ' ')}</h2>
+              </div>
+
               <div className="task-meta-bar">
-                <div className="task-meta">
-                  <span className="task-badge">Scenario {activeTask.scenario_no}</span>
-                  <span className="task-step-count">Example {currentExamplePos + 1} of {scenarioTasks.length || 3}</span>
-                </div>
+                  <div className="task-meta">
+                    <span className="task-badge">Scenario {activeTask.scenario_no}</span>
+                    <span className="task-step-count">sc{activeTask.scenario_no} — ex {activeTask.example_no}</span>
+                  </div>
                 {activeTask.register && (
                   <span className="task-register">🎭 Tone: <strong>{activeTask.register}</strong></span>
                 )}
-              </div>
-              <p className="scenario-name">{activeTask.intent.replace(/^[A-Z]+\./, '').replace(/_/g, ' ')}</p>
-              <div className="prompt-content">
-                <span className="prompt-label">YOUR PROMPT</span>
-                <h1 id="task-title">{activeTask.text_hi}</h1>
               </div>
 
               {/* Example Stepper — shows all 3 examples for this prompt */}
@@ -972,11 +1022,11 @@ export default function HomePage({
                           {t.status === 'recorded' ? (
                             <Check size={14} />
                           ) : (
-                            <span>{i + 1}</span>
+                            <span>{t.example_no}</span>
                           )}
                         </div>
                         <div className="step-detail">
-                          <span className="step-title">Example {i + 1}</span>
+                          <span className="step-title">ex {t.example_no}</span>
                           <span className="step-phrase">{allExamples[i] || ''}</span>
                         </div>
                         {t.task_id === activeTask?.task_id && t.status !== 'recorded' && (
@@ -993,7 +1043,7 @@ export default function HomePage({
                 <div className="current-example-header">
                   <Sparkles size={16} className="icon-accent" />
                   <span className="current-example-label">
-                    Example {currentExamplePos + 1} of {scenarioTasks.length || 3} — Say this phrase:
+                    sc{activeTask.scenario_no} — ex {activeTask.example_no} — Say this phrase:
                   </span>
                 </div>
                 <p className="current-example-phrase">“{currentExampleText}”</p>

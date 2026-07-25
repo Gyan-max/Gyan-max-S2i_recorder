@@ -833,6 +833,31 @@ p {
   background: var(--text-muted);
 }
 
+/* Intent Header — shown on top of recording page */
+.intent-header-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.intent-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.intent-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
 /* Task Screen Styles */
 .task-header {
   display: flex;
@@ -856,14 +881,6 @@ p {
   font-size: 0.85rem;
   color: var(--text-muted);
   font-weight: 500;
-}
-
-.prompt-content {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-  margin-top: 4px;
 }
 
 .task-header-left h2 {
@@ -916,44 +933,7 @@ p {
   margin: 0;
 }
 
-.task-scenario-card {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  padding: 24px;
-  margin-bottom: 24px;
-}
-
-.task-scenario-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  margin-bottom: 12px;
-  font-weight: 600;
-}
-
-.task-scenario-text {
-  font-size: 1.15rem;
-  line-height: 1.7;
-  color: var(--text-primary);
-  margin-bottom: 16px;
-}
-
-.task-scenario-register {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  font-style: italic;
-}
-
-.task-progress-card {
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  margin-bottom: 24px;
-}
-
+/* Progress grid (example cards) */
 .task-progress-label {
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -1477,6 +1457,112 @@ p {
 }
 
 
+
+/* ── Scenario Progress Grid ── */
+.progress-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.progress-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.scenario-progress-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.scenario-card {
+  flex: 1;
+  min-width: 80px;
+  max-width: 100px;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  transition: all 0.25s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.scenario-card:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.scenario-card.current {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
+}
+
+.scenario-card.done {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--color-success);
+  box-shadow: 0 0 8px var(--color-success-glow);
+  opacity: 0.8;
+}
+
+.sc-intent {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 88px;
+}
+
+.sc-id {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+  background: var(--bg-secondary);
+  padding: 1px 8px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-glass);
+}
+
+.sc-progress {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.scenario-card.current .sc-id {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.scenario-card.current .sc-intent,
+.scenario-card.current .sc-progress {
+  color: var(--color-accent);
+}
+
+.scenario-card.done .sc-id {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.scenario-card.done .sc-intent,
+.scenario-card.done .sc-progress {
+  color: var(--color-success);
+}
 
 /* ── Scenario Complete Card ── */
 .scenario-complete-card {
