@@ -9,7 +9,7 @@ interface AdminLoginProps {
 
 export default function AdminLogin({ setAdminToken }: AdminLoginProps) {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -94,8 +94,7 @@ export default function AdminLogin({ setAdminToken }: AdminLoginProps) {
           </form>
 
           <div className="auth-footer">
-            <p>Default credentials: admin / admin123</p>
-            <small>⚠️ Change password in production</small>
+            <small>Protected administrative panel</small>
           </div>
         </div>
       </div>

@@ -1,5 +1,44 @@
 :root {
-  /* Color Palette - Premium Slate & Glowing Indigo */
+  /* Default Light Mode Theme - Premium Soft Look */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-glass-hover: rgba(248, 250, 252, 0.95);
+  --border-glass: rgba(0, 0, 0, 0.08);
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  
+  --color-accent: #4f46e5; /* Indigo */
+  --color-accent-glow: rgba(79, 70, 229, 0.2);
+  --color-success: #059669; /* Emerald */
+  --color-success-glow: rgba(5, 150, 105, 0.2);
+  --color-danger: #e11d48; /* Rose */
+  --color-danger-glow: rgba(225, 29, 72, 0.2);
+  --color-warning: #d97706; /* Amber */
+  --color-warning-glow: rgba(217, 119, 6, 0.2);
+  
+  /* Layout & Spacing */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.12);
+  
+  /* Fonts */
+  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  /* Dark Mode Theme - Premium Slate & Glowing Indigo */
   --bg-primary: #0b0f19;
   --bg-secondary: #131b2e;
   --bg-tertiary: #1e293b;
@@ -19,20 +58,10 @@
   --color-danger-glow: rgba(239, 68, 68, 0.3);
   --color-warning: #f59e0b; /* Amber */
   --color-warning-glow: rgba(245, 158, 11, 0.3);
-  
-  /* Layout & Spacing */
-  --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-xl: 32px;
-  
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.4);
-  
-  /* Fonts */
-  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
   
   color-scheme: dark;
 }
@@ -181,6 +210,28 @@ p {
   box-shadow: var(--shadow-lg);
 }
 
+/* Hero Badges */
+.hero-badges {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-xl);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-glass);
+}
+
 /* Form Sections */
 .form-section {
   margin-bottom: 24px;
@@ -225,6 +276,13 @@ p {
   text-decoration: none;
   user-select: none;
   width: 100%;
+}
+
+.btn-icon {
+  padding: 8px;
+  border-radius: 50%;
+  aspect-ratio: 1/1;
+  width: auto;
 }
 
 .btn-large {
@@ -742,9 +800,34 @@ p {
 /* Task Screen Styles */
 .task-header {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 24px;
+  width: 100%;
+}
+
+.task-meta-bar {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-step-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.prompt-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
 }
 
 .task-header-left h2 {
@@ -1013,6 +1096,51 @@ p {
   font-size: 0.9rem;
   color: var(--text-secondary);
   margin-top: 16px;
+}
+
+/* Audio Visualizer */
+.audio-visualizer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-glass);
+}
+
+.visualizer-canvas {
+  width: 100%;
+  max-width: 280px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+}
+
+.live-rec-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 4px 12px;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.rec-dot-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-danger);
+  animation: pulse 1s infinite;
+}
+
+.rec-timer-text {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-danger);
 }
 
 .record-instruction.recording {

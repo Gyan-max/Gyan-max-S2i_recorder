@@ -72,6 +72,7 @@ async def create_speaker(
         # Create speaker with consent
         new_speaker = Speaker(
             speaker_id=speaker_id,
+            name=speaker_in.name,
             age=speaker_in.age,
             gender=speaker_in.gender,
             l1=speaker_in.l1,
@@ -120,27 +121,19 @@ async def get_device_speakers(
 ):
     """
     Retrieves the speaker roster for a device.
-    
-    Phase 2 Focus:
-    - Supports shared device functionality
-    - Returns speakers ordered by last used timestamp
-    - Excludes withdrawn speakers
-    - Does not return speaker tokens (security)
     """
-    # Security check: ensure device_id in path matches header device_id
     if device_id != x_device_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "ACCESS_DENIED", "message": "Cannot access roster for another device"}
         )
         
-    # Query speakers for this device
     stmt = (
-        select(Speaker.speaker_id, Speaker.age_band, Speaker.gender, DeviceSpeaker.last_used_at)
+        select(Speaker.speaker_id, Speaker.name, Speaker.age_band, Speaker.gender, DeviceSpeaker.last_used_at)
         .join(DeviceSpeaker, Speaker.speaker_id == DeviceSpeaker.speaker_id)
         .where(
             DeviceSpeaker.device_id == device_id,
-            Speaker.withdrawn_at == None  # Exclude withdrawn speakers
+            Speaker.withdrawn_at == None
         )
         .order_by(desc(DeviceSpeaker.last_used_at))
     )
@@ -153,6 +146,7 @@ async def get_device_speakers(
         speakers_list.append(
             SpeakerRosterItem(
                 speaker_id=r.speaker_id,
+                name=r.name,
                 age_band=r.age_band,
                 gender=r.gender,
                 last_used_at=r.last_used_at

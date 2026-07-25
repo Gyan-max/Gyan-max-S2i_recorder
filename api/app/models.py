@@ -10,6 +10,7 @@ class Speaker(Base):
     __tablename__ = "speakers"
 
     speaker_id = Column(String, primary_key=True)  # Format 'SPK_0042'
+    name = Column(String, nullable=True)           # Full name of volunteer
     token = Column(String, unique=True, default=lambda: str(uuid.uuid4()), nullable=False)
     age = Column(Integer, nullable=False)
     

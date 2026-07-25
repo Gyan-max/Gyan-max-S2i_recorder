@@ -1,10 +1,10 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
+from sqlalchemy import event
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./s2i_recorder.db")
 
-# Create async engine. For SQLite, we set check_same_thread=False
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
@@ -14,6 +14,16 @@ engine = create_async_engine(
     connect_args=connect_args,
     echo=False
 )
+
+# Enable SQLite Write-Ahead Logging (WAL) and busy timeout to prevent database lock issues
+if DATABASE_URL.startswith("sqlite"):
+    @event.listens_for(engine.sync_engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,

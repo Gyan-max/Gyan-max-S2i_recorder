@@ -16,11 +16,25 @@ export default function AppRouter() {
   const [speakerRoster, setSpeakerRoster] = useState<SpeakerRosterItem[]>([]);
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   
+  // Theme State
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('s2i_theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+  
   // Admin State
   const [isAdmin, setIsAdmin] = useState<boolean>(() => Boolean(localStorage.getItem('admin_token')));
   const [adminToken, setAdminToken] = useState<string | null>(
     localStorage.getItem('admin_token')
   );
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('s2i_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
 
   useEffect(() => {
     // Initialize device ID
@@ -100,6 +114,8 @@ export default function AppRouter() {
           adminToken={adminToken}
           currentSpeaker={currentSpeaker}
           onLogout={handleAdminLogout}
+          theme={theme}
+          toggleTheme={toggleTheme}
         />
         
         <Routes>
@@ -154,35 +170,6 @@ export default function AppRouter() {
               )
             } 
           />
-          <Route 
-            path="/admin/recordings" 
-            element={
-              adminToken ? (
-                <AdminPanel 
-                  adminToken={adminToken} 
-                  onLogout={handleAdminLogout} 
-                  initialTab="clips"
-                />
-              ) : (
-                <Navigate to="/admin/login" replace />
-              )
-            } 
-          />
-          <Route 
-            path="/admin/speakers" 
-            element={
-              adminToken ? (
-                <AdminPanel 
-                  adminToken={adminToken} 
-                  onLogout={handleAdminLogout} 
-                  initialTab="speakers"
-                />
-              ) : (
-                <Navigate to="/admin/login" replace />
-              )
-            } 
-          />
-          
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

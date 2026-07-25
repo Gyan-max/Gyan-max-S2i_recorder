@@ -17,10 +17,13 @@ app = FastAPI(
     version="5.0.0"
 )
 
+from .config import CORS_ORIGINS
+
 # Enable CORS for frontend web app access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

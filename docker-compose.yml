@@ -1,72 +1,19 @@
 version: '3.8'
 
 services:
-  # FastAPI Backend
   api:
     build:
-      context: ./api
+      context: .
       dockerfile: Dockerfile
-    container_name: s2i-api
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:////data/s2i_recorder.db
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
-      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - JWT_SECRET_KEY=change-this-secret-in-production
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+      - DATABASE_URL=sqlite+aiosqlite:///./data/s2i_recorder.db
     volumes:
-      - ./api:/app
-      - ./data:/data
       - ./storage:/app/storage
-    depends_on:
-      - redis
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-  # Celery Worker for Background Processing
-  worker:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    container_name: s2i-worker
-    environment:
-      - DATABASE_URL=sqlite+aiosqlite:////data/s2i_recorder.db
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    volumes:
-      - ./api:/app
-      - ./data:/data
-      - ./storage:/app/storage
-    depends_on:
-      - redis
-    command: celery -A app.worker.celery_app worker --loglevel=info
-
-  # Redis for Celery Message Broker
-  redis:
-    image: redis:7-alpine
-    container_name: s2i-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-
-  # React Frontend (Development)
-  web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile.dev
-    container_name: s2i-web
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./web:/app
-      - /app/node_modules
-    environment:
-      - VITE_API_URL=http://localhost:8000
-    command: npm run dev -- --host 0.0.0.0
-
-volumes:
-  redis_data:
+      - ./data:/app/data
+    restart: unless-stopped

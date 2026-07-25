@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useRef, useState } from 'react';
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause, Gauge } from 'lucide-react';
 
 interface AudioPlayerProps {
   src: string;
@@ -19,11 +19,6 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-/**
- * Custom playback control for reviewing a recording. Purely presentational —
- * all mandatory-listen / anti-seek-bypass logic stays in the parent, which
- * receives the raw <audio> events via the callbacks above.
- */
 const AudioPlayer = forwardRef<HTMLAudioElement, AudioPlayerProps>(function AudioPlayer(
   { src, onSeekAttempt, onPlay, onPause, onEnded, onTimeUpdate },
   forwardedRef
@@ -32,6 +27,7 @@ const AudioPlayer = forwardRef<HTMLAudioElement, AudioPlayerProps>(function Audi
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState<number>(1.0);
 
   useEffect(() => {
     setCurrentTime(0);
@@ -55,27 +51,35 @@ const AudioPlayer = forwardRef<HTMLAudioElement, AudioPlayerProps>(function Audi
     }
   };
 
+  const toggleSpeed = () => {
+    const nextRate = playbackRate === 1.0 ? 1.25 : playbackRate === 1.25 ? 1.5 : 1.0;
+    setPlaybackRate(nextRate);
+    if (internalRef.current) {
+      internalRef.current.playbackRate = nextRate;
+    }
+  };
+
   const handleSeekChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const el = internalRef.current;
     if (!el) return;
     el.currentTime = parseFloat(event.target.value);
   };
 
-  // MediaRecorder-produced blobs sometimes report an Infinity duration in
-  // Chrome until playback resolves the real value — guard against that
-  // rather than feeding it into the range input's max/value.
   const safeDuration = Number.isFinite(duration) ? duration : 0;
   const progressPct = safeDuration > 0 ? Math.min(100, (currentTime / safeDuration) * 100) : 0;
 
   return (
-    <div className="audio-player">
+    <div className="audio-player glass-audio-player">
       <audio
         ref={attachRef}
         src={src}
         preload="metadata"
         onPlay={() => { setIsPlaying(true); onPlay?.(); }}
         onPause={() => { setIsPlaying(false); onPause?.(); }}
-        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
+        onLoadedMetadata={(event) => {
+          setDuration(event.currentTarget.duration);
+          event.currentTarget.playbackRate = playbackRate;
+        }}
         onDurationChange={(event) => setDuration(event.currentTarget.duration)}
         onTimeUpdate={(event) => {
           setCurrentTime(event.currentTarget.currentTime);
@@ -113,9 +117,21 @@ const AudioPlayer = forwardRef<HTMLAudioElement, AudioPlayerProps>(function Audi
           aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
         />
 
-        <span className="audio-time" aria-hidden="true">
-          {formatTime(currentTime)} / {formatTime(duration)}
-        </span>
+        <div className="audio-player-right-group">
+          <button 
+            type="button" 
+            className="speed-toggle-btn"
+            onClick={toggleSpeed}
+            title="Toggle playback speed"
+          >
+            <Gauge size={14} />
+            <span>{playbackRate}x</span>
+          </button>
+
+          <span className="audio-time" aria-hidden="true">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
+        </div>
       </div>
     </div>
   );

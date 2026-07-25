@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mic, RotateCcw, Check, Users, RefreshCw, Headphones, Lock, WifiOff, CheckCircle } from 'lucide-react';
+import { Mic, RotateCcw, Check, Users, RefreshCw, Headphones, Lock, WifiOff, CheckCircle, Sparkles, ShieldCheck } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { SpeakerResponse, SpeakerRosterItem, SessionBatchInfo, TaskResponse } from '../types';
 import { saveAudioBlob, enqueueUpload, getUploadQueue, dequeueUpload } from '../db';
 import { API_BASE } from '../config';
 import AudioPlayer from '../components/AudioPlayer';
+import AudioVisualizer from '../components/AudioVisualizer';
 
 interface HomePageProps {
   deviceId: string;
@@ -22,16 +24,19 @@ export default function HomePage({
   fetchSpeakerRoster,
   isOnline
 }: HomePageProps) {
-  
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialDomain = searchParams.get('domain') || 'BNK';
+
   const [showOnboarding, setShowOnboarding] = useState(!currentSpeaker);
   const [showSpeakerConfirm, setShowSpeakerConfirm] = useState(!!currentSpeaker);
   const [showSpeakerRoster, setShowSpeakerRoster] = useState(false);
-  
+
   // Domain & Session State
-  const [selectedDomain, setSelectedDomain] = useState<string>('BNK');
+  const [selectedDomain, setSelectedDomain] = useState<string>(initialDomain);
   const [sessionBatch, setSessionBatch] = useState<SessionBatchInfo | null>(null);
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
-  
+
   // Recording State
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'reviewing' | 'uploading'>('idle');
   const [recordingDuration, setRecordingDuration] = useState<number>(0);
@@ -44,17 +49,19 @@ export default function HomePage({
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [notice, setNotice] = useState<string>('');
   const [recordingError, setRecordingError] = useState<string>('');
-  
+
   // Action Loading States
   const [isConfirming, setIsConfirming] = useState(false);
   const [isRedoing, setIsRedoing] = useState(false);
-  
+  const [showBatchCompleteModal, setShowBatchCompleteModal] = useState(false);
+
   // Onboarding Form
+  const [fullName, setFullName] = useState<string>('');
   const [age, setAge] = useState<number>(25);
   const [gender, setGender] = useState<string>('male');
   const [l1, setL1] = useState<string>('Hindi');
   const [region, setRegion] = useState<string>('Delhi');
-  
+
   // Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -77,15 +84,14 @@ export default function HomePage({
     };
   }, []);
 
-  // Ask the browser to retain locally saved recordings when storage persistence is available.
+  // Ask browser to retain local storage persistence
   useEffect(() => {
     if (navigator.storage?.persist) {
       navigator.storage.persist().catch(() => undefined);
     }
   }, []);
 
-  // Mobile browsers can suspend or revoke microphone access when the app is backgrounded.
-  // Stop cleanly so the volunteer returns to a playable review state instead of a stuck recorder.
+  // Mobile visibility handling
   useEffect(() => {
     const stopWhenHidden = () => {
       if (document.hidden && mediaRecorderRef.current?.state === 'recording') {
@@ -101,6 +107,35 @@ export default function HomePage({
     if (!isOnline) return;
     processUploadQueue();
   }, [isOnline]);
+
+  // Keyboard Shortcuts (Space for Record, Enter for Keep, R for Redo)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept typing in input or textarea
+      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (targetTag === 'input' || targetTag === 'textarea' || targetTag === 'select') {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (recordingState === 'recording') {
+          handleRecordStop();
+        } else if (recordingState === 'idle') {
+          handleRecordStart();
+        }
+      } else if (e.code === 'Enter' && recordingState === 'reviewing' && hasListened && !isConfirming) {
+        e.preventDefault();
+        handleConfirmKeep();
+      } else if ((e.code === 'KeyR' || e.key === 'r') && recordingState === 'reviewing' && !isRedoing) {
+        e.preventDefault();
+        handleDiscardRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [recordingState, hasListened, isConfirming, isRedoing]);
 
   const processUploadQueue = async () => {
     try {
@@ -134,6 +169,14 @@ export default function HomePage({
       fetchSessionBatch(selectedDomain);
     }
   }, [currentSpeaker, selectedDomain, showSpeakerConfirm, showOnboarding]);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const domain = searchParams.get('domain');
+    if (domain && domain !== selectedDomain) {
+      setSelectedDomain(domain);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (recordingState === 'recording') {
@@ -178,8 +221,23 @@ export default function HomePage({
       if (res.ok) {
         const data = await res.json();
         setSessionBatch(data.batch);
-        const pendingIndex = data.batch.tasks.findIndex((t: TaskResponse) => t.status === 'pending');
-        setCurrentTaskIndex(pendingIndex >= 0 ? pendingIndex : 0);
+
+        // Check if we need to jump to a specific example from URL
+        const searchParams = new URLSearchParams(location.search);
+        const exampleParam = searchParams.get('example');
+
+        let targetIndex = -1;
+        if (exampleParam) {
+          const exNo = parseInt(exampleParam, 10);
+          targetIndex = data.batch.tasks.findIndex((t: TaskResponse) => t.example_no === exNo);
+        }
+
+        if (targetIndex >= 0) {
+          setCurrentTaskIndex(targetIndex);
+        } else {
+          const pendingIndex = data.batch.tasks.findIndex((t: TaskResponse) => t.status === 'pending');
+          setCurrentTaskIndex(pendingIndex >= 0 ? pendingIndex : 0);
+        }
       }
     } catch (e) {
       console.error('Failed to load session batch', e);
@@ -217,6 +275,7 @@ export default function HomePage({
       if (handleAuthError(res.status)) return;
       if (res.ok) {
         const speaker: SpeakerResponse = await res.json();
+        if (fullName) speaker.name = fullName;
         setCurrentSpeaker(speaker);
         localStorage.setItem('active_speaker', JSON.stringify(speaker));
         setShowOnboarding(false);
@@ -244,7 +303,7 @@ export default function HomePage({
     if (!currentSpeaker) return;
     setRecordingError('');
     setNotice('');
-    if (!window.isSecureContext && location.hostname !== 'localhost') {
+    if (!window.isSecureContext && window.location.hostname !== 'localhost') {
       setRecordingError('Recording requires a secure HTTPS connection. Please open the official secure link and try again.');
       return;
     }
@@ -296,13 +355,12 @@ export default function HomePage({
 
       recorder.onstop = async () => {
         stream.getTracks().forEach(track => track.stop());
-        mediaStreamRef.current = null;
         if (!isMountedRef.current) return;
-        
-        const actualDuration = recordingStartTimeRef.current 
-          ? (Date.now() - recordingStartTimeRef.current) / 1000 
+
+        const actualDuration = recordingStartTimeRef.current
+          ? (Date.now() - recordingStartTimeRef.current) / 1000
           : recordingDuration;
-        
+
         if (actualDuration < 0.4) {
           setRecordingError('That recording was too short. Please record for at least one second and try again.');
           setRecordingState('idle');
@@ -313,16 +371,16 @@ export default function HomePage({
 
         const actualMimeType = mediaRecorderRef.current?.mimeType || mimeType || 'audio/webm';
         const finalBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
-        
+
         const url = URL.createObjectURL(finalBlob);
-        
+
         setAudioUrl(url);
         setRecordingState('reviewing');
         setHasListened(false);
         setIsPlayingBack(false);
         furthestPlaybackRef.current = 0;
         recordingStartTimeRef.current = null;
-        
+
         playbackTimerRef.current = setTimeout(() => {
           if (audioPlayerRef.current && isMountedRef.current) {
             audioPlayerRef.current.load();
@@ -410,7 +468,7 @@ export default function HomePage({
     try {
       const formData = new FormData();
       formData.append('file', blob, 'audio_record');
-      
+
       const res = await fetch(`${API_BASE}/clips/upload?clip_id=${clipId}`, {
         method: 'POST',
         headers: { 'X-Device-ID': deviceId },
@@ -439,7 +497,7 @@ export default function HomePage({
   const handleConfirmKeep = async () => {
     if (!currentSpeaker || !sessionBatch || !activeClipId || isConfirming) return;
     setIsConfirming(true);
-    
+
     if (!isOnline) {
       const updatedTasks = [...sessionBatch.tasks];
       updatedTasks[currentTaskIndex].status = 'recorded';
@@ -449,7 +507,7 @@ export default function HomePage({
       setIsConfirming(false);
       return;
     }
-    
+
     try {
       const res = await fetch(`${API_BASE}/clips/${activeClipId}/confirm`, {
         method: 'POST',
@@ -468,7 +526,7 @@ export default function HomePage({
         updatedTasks[currentTaskIndex].status = 'recorded';
         setSessionBatch({ ...sessionBatch, tasks: updatedTasks });
         advanceTask();
-        setNotice('Recording saved. Moving to the next task.');
+        setNotice('Recording saved successfully!');
         resetAudioState();
       }
     } catch (e) {
@@ -481,13 +539,13 @@ export default function HomePage({
   const handleDiscardRedo = async () => {
     if (!currentSpeaker || !sessionBatch || !activeClipId || isRedoing) return;
     setIsRedoing(true);
-    
+
     if (!isOnline) {
       resetAudioState();
       setIsRedoing(false);
       return;
     }
-    
+
     try {
       const res = await fetch(`${API_BASE}/clips/${activeClipId}/discard`, {
         method: 'POST',
@@ -520,8 +578,7 @@ export default function HomePage({
       if (firstPending >= 0) {
         setCurrentTaskIndex(firstPending);
       } else {
-        alert('Batch completed! Fetching next batch...');
-        fetchSessionBatch(selectedDomain);
+        setShowBatchCompleteModal(true);
       }
     }
   };
@@ -547,7 +604,7 @@ export default function HomePage({
     return (
       <div className="page-container">
         <div className="content-wrapper">
-          <div className="card card-lg">
+          <div className="card card-lg glass-card fade-in">
             <div className="card-header">
               <h2>Switch Profile</h2>
               <p>Select a speaker profile to record as</p>
@@ -594,66 +651,120 @@ export default function HomePage({
   if (showOnboarding) {
     return (
       <main className="page-container onboarding-page">
-        <div className="content-wrapper onboarding-wrapper">
-          <div className="card card-lg onboarding-card">
+        <div className="content-wrapper onboarding-wrapper fade-in">
+          <div className="card card-lg onboarding-card glass-card">
             <div className="card-header onboarding-header">
-              <span className="eyebrow">Welcome</span>
-              <h1>Help improve Hinglish speech technology</h1>
-              <p>Before you begin, tell us a little about your voice. Your recordings are associated with an anonymous participant ID, not your name.</p>
+              <span className="eyebrow"><Sparkles size={14} style={{ display: 'inline', marginRight: 4 }} /> Welcome</span>
+              <h1>Help Improve Speech AI</h1>
+              <p>Record natural Hinglish conversations and help build better speech technology. Your recordings are associated with an anonymous participant ID, not your name.</p>
+              <div className="hero-badges">
+                <span className="hero-badge">🎙️ Record</span>
+                <span className="hero-badge">🔒 Private</span>
+                <span className="hero-badge">⚡ Simple</span>
+              </div>
             </div>
             <form onSubmit={handleOnboardingSubmit} className="form">
               <div className="form-section-heading">
                 <h2>About you</h2>
                 <p>This helps researchers understand coverage across different speakers.</p>
               </div>
+
+              <div className="form-group">
+                <label className="form-label">Your Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Enter your name (e.g. Rahul Sharma)"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                />
+              </div>
+
               <div className="form-group">
                 <label className="form-label">Age</label>
-                <input 
-                  type="number" 
-                  className="form-input" 
-                  min="10" max="100" 
+                <input
+                  type="number"
+                  className="form-input"
+                  min="10" max="100"
                   value={age}
                   onChange={(e) => setAge(parseInt(e.target.value))}
-                  required 
+                  required
                 />
               </div>
+
+              {/* Interactive Gender Selector */}
               <div className="form-group">
                 <label className="form-label">Gender</label>
-                <select className="form-select" value={gender} onChange={(e) => setGender(e.target.value)}>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                  <option value="prefer_not_say">Prefer not to say</option>
-                </select>
+                <div className="pill-choice-group">
+                  {[
+                    { id: 'male', label: '👨 Male' },
+                    { id: 'female', label: '👩 Female' },
+                    { id: 'other', label: '⚧ Other' },
+                    { id: 'prefer_not_say', label: '🔒 Prefer not to say' }
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={`pill-choice ${gender === opt.id ? 'active' : ''}`}
+                      onClick={() => setGender(opt.id)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Interactive L1 Selector */}
               <div className="form-group">
                 <label className="form-label">Native Language (L1)</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={l1}
-                  onChange={(e) => setL1(e.target.value)}
-                  required 
-                />
+                <div className="pill-choice-group">
+                  {['Hindi', 'English', 'Hinglish', 'Bengali', 'Marathi', 'Other'].map(lang => (
+                    <button
+                      key={lang}
+                      type="button"
+                      className={`pill-choice ${l1 === lang ? 'active' : ''}`}
+                      onClick={() => setL1(lang)}
+                    >
+                      {lang}
+                    </button>
+                  ))}
+                </div>
+                {l1 === 'Other' && (
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Specify native language"
+                    style={{ marginTop: 8 }}
+                    onChange={(e) => setL1(e.target.value)}
+                    required
+                  />
+                )}
               </div>
+
               <div className="form-group">
                 <label className="form-label">Home State / Region</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
+                <input
+                  type="text"
+                  className="form-input"
                   value={region}
                   onChange={(e) => setRegion(e.target.value)}
-                  required 
+                  required
                 />
               </div>
-              <div className="consent-box">
-                <h4>How your recordings will be used</h4>
-                <p>I agree to contribute my anonymous voice recordings for researchers training speech recognition models. I understand no personal names or contact information is associated with my voice clips. I can request dataset deletion at any time via my Speaker ID.</p>
-                <label className="consent-check">
-                  <input type="checkbox" checked={consentAccepted} onChange={(event) => setConsentAccepted(event.target.checked)} />
-                  <span>I understand and agree to participate.</span>
+
+              <div className="consent-box glass-card" style={{ padding: '20px', marginTop: '32px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <ShieldCheck size={20} className="icon-success" style={{ color: 'var(--color-success)' }} />
+                  <h4 style={{ margin: 0 }}>Data & Privacy Consent</h4>
+                </div>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>I agree to contribute my anonymous voice recordings for researchers training speech recognition models. I understand no personal names or contact information is associated with my voice clips.</p>
+                <label className="consent-check" style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', cursor: 'pointer', background: 'var(--bg-primary)', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
+                  <input type="checkbox" checked={consentAccepted} onChange={(event) => setConsentAccepted(event.target.checked)} style={{ marginTop: '4px', transform: 'scale(1.2)' }} />
+                  <span style={{ fontWeight: 500 }}>I understand and agree to participate.</span>
                 </label>
               </div>
+
               <button type="submit" className="btn btn-primary btn-lg" disabled={!consentAccepted}>
                 Continue to recording
               </button>
@@ -668,12 +779,12 @@ export default function HomePage({
   if (showSpeakerConfirm && currentSpeaker) {
     return (
       <main className="page-container onboarding-page">
-        <div className="content-wrapper onboarding-wrapper">
-          <div className="card card-center identity-card">
+        <div className="content-wrapper onboarding-wrapper fade-in">
+          <div className="card card-center identity-card glass-card">
             <Users size={48} className="icon-accent" />
             <span className="eyebrow">Welcome back</span>
             <h1>Are you ready to continue?</h1>
-            <p>Confirm that you are recording with the same participant profile as your previous session.</p>
+            <p>Confirm that you are recording with participant profile <strong>{currentSpeaker.speaker_id}</strong>.</p>
             <div className="button-group">
               <button className="btn btn-primary" onClick={() => setShowSpeakerConfirm(false)}>
                 Yes, continue
@@ -694,9 +805,9 @@ export default function HomePage({
       <div className="content-wrapper">
         <header className="volunteer-hero">
           <div>
-            <span className="eyebrow">Hinglish speech study</span>
+            <span className="eyebrow"><Sparkles size={14} style={{ display: 'inline', marginRight: 4 }} /> Hinglish speech study</span>
             <h1>Record a short response</h1>
-            <p>Follow one prompt at a time. You can listen before choosing whether to keep each recording.</p>
+            <p>Follow one prompt at a time. Speak naturally in Hinglish.</p>
           </div>
           <span className={`connection-status ${isOnline ? 'online' : 'offline'}`} role="status">
             <span aria-hidden="true" />
@@ -704,7 +815,7 @@ export default function HomePage({
           </span>
         </header>
 
-        {notice && <div className="volunteer-notice" role="status"><CheckCircle size={18} />{notice}</div>}
+        {notice && <div className="volunteer-notice fade-in" role="status"><CheckCircle size={18} />{notice}</div>}
 
         {!isOnline && (
           <div className="offline-note" role="status">
@@ -714,7 +825,7 @@ export default function HomePage({
         )}
 
         {/* Domain Selector */}
-        <div className="card domain-card">
+        <div className="card domain-card glass-card">
           <div className="section-heading">
             <div>
               <span className="eyebrow">Choose a topic</span>
@@ -722,15 +833,18 @@ export default function HomePage({
             </div>
           </div>
           <div className="domain-selector">
-            {['BNK', 'EDU', 'TRV', 'VAS'].map(dom => (
+            {[
+              { id: 'BNK', label: '🏦 Banking' },
+              { id: 'EDU', label: '🎓 Education' },
+              { id: 'TRV', label: '✈️ Travel' },
+              { id: 'VAS', label: '🎙️ Assistant' }
+            ].map(dom => (
               <button
-                key={dom}
-                className={`domain-btn ${selectedDomain === dom ? 'active' : ''}`}
-                onClick={() => setSelectedDomain(dom)}
+                key={dom.id}
+                className={`domain-btn ${selectedDomain === dom.id ? 'active' : ''}`}
+                onClick={() => setSelectedDomain(dom.id)}
               >
-                {dom === 'BNK' ? '🏦 Banking' : 
-                 dom === 'EDU' ? '🎓 Education' : 
-                 dom === 'TRV' ? '✈️ Travel' : '🎙️ Assistant'}
+                {dom.label}
               </button>
             ))}
           </div>
@@ -738,7 +852,7 @@ export default function HomePage({
 
         {/* Progress */}
         {sessionBatch && (
-          <section className="card task-progress" aria-label="Task progress">
+          <section className="card task-progress glass-card" aria-label="Task progress">
             <div className="progress-info">
               <span>Task {currentTaskIndex + 1} of {sessionBatch.tasks.length}</span>
               <span>{sessionBatch.progress.intents_done} of {sessionBatch.progress.intents_total} sections complete</span>
@@ -748,17 +862,17 @@ export default function HomePage({
                 let statusClass = 'pending';
                 if (task.status === 'recorded') statusClass = 'recorded';
                 else if (idx === currentTaskIndex) statusClass = 'active';
-                
+
                 return (
-                  <div 
-                    key={task.task_id} 
+                  <div
+                    key={task.task_id}
                     className={`progress-diamond ${statusClass}`}
-                    onClick={() => task.status === 'pending' && setCurrentTaskIndex(idx)}
+                    onClick={() => setCurrentTaskIndex(idx)}
                     role="button"
-                    tabIndex={task.status === 'pending' ? 0 : -1}
+                    tabIndex={0}
                     aria-label={`Prompt ${idx + 1}: ${task.status}`}
                     onKeyDown={(event) => {
-                      if (task.status === 'pending' && (event.key === 'Enter' || event.key === ' ')) setCurrentTaskIndex(idx);
+                      if (event.key === 'Enter' || event.key === ' ') setCurrentTaskIndex(idx);
                     }}
                     title={`Scenario ${task.scenario_no}`}
                   />
@@ -770,45 +884,56 @@ export default function HomePage({
 
         {/* Recording Task */}
         {activeTask && (
-          <section className="card card-lg recording-card" aria-labelledby="task-title">
+          <section className="card card-lg recording-card glass-card fade-in" aria-labelledby="task-title">
             <div className="task-header">
-              <div className="task-meta">
-                <span className="task-badge">Scenario</span>
-                <span>Task {currentTaskIndex + 1} of {sessionBatch?.tasks.length}</span>
+              <div className="task-meta-bar">
+                <div className="task-meta">
+                  <span className="task-badge">Scenario {activeTask.scenario_no}</span>
+                  <span className="task-step-count">Task {currentTaskIndex + 1} of {sessionBatch?.tasks.length}</span>
+                </div>
+                {activeTask.register && (
+                  <span className="task-register">🎭 Tone: <strong>{activeTask.register}</strong></span>
+                )}
               </div>
               <p className="scenario-name">{activeTask.intent.replace(/^[A-Z]+\./, '').replace(/_/g, ' ')}</p>
-              <span className="prompt-label">Your task</span>
-              <h1 id="task-title">{activeTask.text_hi}</h1>
-              {activeTask.register && (
-                <p className="task-register">🎭 Tone: <strong>{activeTask.register}</strong></p>
-              )}
+              <div className="prompt-content">
+                <span className="prompt-label">YOUR PROMPT</span>
+                <h1 id="task-title">{activeTask.text_hi}</h1>
+              </div>
             </div>
 
             {(recordingState === 'idle' || recordingState === 'recording') ? (
               <div className="record-section">
+                {/* Dynamic Sound Visualizer */}
+                <AudioVisualizer
+                  stream={mediaStreamRef.current}
+                  isRecording={recordingState === 'recording'}
+                  duration={recordingDuration}
+                />
+
                 <p className="record-hint" aria-live="polite">
                   {recordingState === 'recording'
-                    ? 'Recording in progress. Select stop when you are finished.'
-                    : 'Ready when you are. Start recording when you’re comfortable.'}
+                    ? 'Recording in progress. Press Space or click Stop when finished.'
+                    : 'Ready when you are. Press Space or click Start recording.'}
                 </p>
-                {recordingError && <div className="recording-error" role="alert">{recordingError}</div>}
-                
-                <button 
-                  className={`record-btn ${recordingState === 'recording' ? 'recording' : ''}`}
-                  onClick={handleRecordToggle}
-                  aria-label={recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
-                >
-                  <Mic size={26} />
-                  <span>{recordingState === 'recording' ? 'Stop recording' : 'Start recording'}</span>
-                </button>
 
-                {recordingState === 'recording' && (
-                  <p className="record-duration">{recordingDuration.toFixed(1)}s</p>
-                )}
+                {recordingError && <div className="recording-error" role="alert">{recordingError}</div>}
+
+                <div className="rec-btn-container">
+                  <button
+                    className={`record-btn ${recordingState === 'recording' ? 'recording' : ''}`}
+                    onClick={handleRecordToggle}
+                    aria-label={recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
+                  >
+                    <Mic size={26} />
+                    <span>{recordingState === 'recording' ? 'Stop recording' : 'Start recording'}</span>
+                    <kbd className="kbd-badge"></kbd>
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="review-section" aria-live="polite">
-                <div className="audio-player-box">
+              <div className="review-section fade-in" aria-live="polite">
+                <div className="audio-player-box glass-card">
                   <div className="review-heading">
                     <div>
                       <span className="eyebrow">Recording ready</span>
@@ -828,11 +953,12 @@ export default function HomePage({
                       if (!hasListened && attemptedTime > furthestPlaybackRef.current + 0.75) {
                         return furthestPlaybackRef.current;
                       }
+                      return undefined;
                     }}
                     onEnded={() => { setIsPlayingBack(false); setHasListened(true); }}
                   />
                   <p className="listen-guidance">
-                    {hasListened ? 'Recording reviewed. You can keep it or record another attempt.' : isPlayingBack ? 'Listening… keep will unlock when playback finishes.' : 'Please listen to the full recording before keeping it.'}
+                    {hasListened ? 'Recording reviewed! Press Enter to keep or R to record again.' : isPlayingBack ? 'Listening… keep will unlock when playback finishes.' : 'Please listen to the full recording before keeping it.'}
                   </p>
                 </div>
 
@@ -840,7 +966,7 @@ export default function HomePage({
                   <label className="form-label">Type what you said (optional):</label>
                   <textarea
                     className="form-input"
-                    placeholder={`Examples: "${activeTask.examples[0]}"`}
+                    placeholder={`Examples: "${activeTask.examples[0] || ''}"`}
                     value={transcriptEdit}
                     onChange={(e) => setTranscriptEdit(e.target.value)}
                   />
@@ -848,18 +974,43 @@ export default function HomePage({
 
                 <div className="button-group review-actions">
                   <button className="btn btn-secondary" onClick={handleDiscardRedo} disabled={isRedoing || isConfirming}>
-                    {isRedoing ? <RefreshCw size={18} className="animate-spin" /> : <RotateCcw size={18} />} Record again
+                    {isRedoing ? <RefreshCw size={18} className="animate-spin" /> : <RotateCcw size={18} />}
+                    <span>Record again</span>
+                    <kbd className="kbd-badge">R</kbd>
                   </button>
                   <button className="btn btn-primary" onClick={handleConfirmKeep} disabled={isConfirming || isRedoing || !hasListened} title={!hasListened ? 'Listen to the full recording before keeping it.' : undefined}>
-                    {isConfirming ? <RefreshCw size={18} className="animate-spin" /> : hasListened ? <Check size={18} /> : <Lock size={18} />} {isConfirming ? 'Saving…' : 'Keep recording'}
+                    {isConfirming ? <RefreshCw size={18} className="animate-spin" /> : hasListened ? <Check size={18} /> : <Lock size={18} />}
+                    <span>{isConfirming ? 'Saving…' : 'Keep recording'}</span>
+                    {hasListened && <kbd className="kbd-badge light">Enter</kbd>}
                   </button>
                 </div>
               </div>
             )}
           </section>
         )}
+
         {!sessionBatch && !showOnboarding && !showSpeakerConfirm && (
           <div className="card loading-task" role="status">Loading your next recording task…</div>
+        )}
+
+        {/* Batch Complete Celebration Modal */}
+        {showBatchCompleteModal && (
+          <div className="modal-overlay fade-in">
+            <div className="modal-card glass-card">
+              <div className="celebration-icon">🎉</div>
+              <h2>Batch Completed!</h2>
+              <p>Awesome work! You have finished all tasks in this batch.</p>
+              <button
+                className="btn btn-primary btn-large"
+                onClick={() => {
+                  setShowBatchCompleteModal(false);
+                  fetchSessionBatch(selectedDomain);
+                }}
+              >
+                Load Next Batch
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </main>

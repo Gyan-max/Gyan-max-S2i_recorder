@@ -18,12 +18,9 @@ from sqlalchemy import select
 from .database import get_db
 from .models import Speaker, Device
 
-# Security configuration
-SECRET_KEY = "your-secret-key-change-in-production"  # TODO: Move to environment variable
-ALGORITHM = "HS256"
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"  # TODO: Move to environment variable and hash
-ACCESS_TOKEN_EXPIRE_HOURS = 8
+from .config import (
+    SECRET_KEY, ALGORITHM, ADMIN_USERNAME, ADMIN_PASSWORD, ACCESS_TOKEN_EXPIRE_HOURS
+)
 
 security = HTTPBearer()
 

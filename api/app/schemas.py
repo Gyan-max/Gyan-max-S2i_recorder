@@ -35,6 +35,7 @@ class DeviceResponse(BaseModel):
 
 # Speaker schemas
 class SpeakerCreate(BaseModel):
+    name: Optional[str] = Field(None, description="Volunteer name")
     age: int = Field(..., ge=10, le=100, description="Speaker age between 10 and 100")
     gender: str = Field(..., description="Gender: male, female, other, prefer_not_say")
     l1: str = Field(..., min_length=1, description="Native language")
@@ -51,6 +52,7 @@ class SpeakerCreate(BaseModel):
 
 class SpeakerResponse(BaseModel):
     speaker_id: str
+    name: Optional[str] = None
     token: str
     age_band: str
     consent_at: datetime
@@ -60,6 +62,7 @@ class SpeakerResponse(BaseModel):
 
 class SpeakerRosterItem(BaseModel):
     speaker_id: str
+    name: Optional[str] = None
     age_band: str
     gender: str
     last_used_at: datetime

@@ -2,6 +2,7 @@
 
 export interface SpeakerResponse {
   speaker_id: string;
+  name?: string;
   token: string;
   age_band: string;
   consent_at: string;
@@ -9,6 +10,7 @@ export interface SpeakerResponse {
 
 export interface SpeakerRosterItem {
   speaker_id: string;
+  name?: string;
   age_band: string;
   gender: string;
   last_used_at: string;

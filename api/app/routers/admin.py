@@ -817,6 +817,7 @@ async def get_speakers_detailed(
     for row in rows:
         speakers_list.append({
             "speaker_id": row.Speaker.speaker_id,
+            "name": row.Speaker.name,
             "gender": row.Speaker.gender,
             "age": row.Speaker.age,
             "age_band": row.Speaker.age_band,

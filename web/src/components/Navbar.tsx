@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Globe, Mic, BarChart3, Users, LogOut, Menu, X } from 'lucide-react';
+import { Globe, Mic, BarChart3, Users, LogOut, Menu, X, Sun, Moon } from 'lucide-react';
 import { useState } from 'react';
 
 interface NavbarProps {
@@ -7,9 +7,11 @@ interface NavbarProps {
   adminToken: string | null;
   currentSpeaker: any;
   onLogout: () => void;
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
 }
 
-export default function Navbar({ isAdmin, adminToken, currentSpeaker, onLogout }: NavbarProps) {
+export default function Navbar({ isAdmin, adminToken, currentSpeaker, onLogout, theme, toggleTheme }: NavbarProps) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -58,20 +60,6 @@ export default function Navbar({ isAdmin, adminToken, currentSpeaker, onLogout }
                 <BarChart3 size={18} />
                 <span>Dashboard</span>
               </Link>
-              <Link 
-                to="/admin/recordings" 
-                className={`nav-link ${isActive('/admin/recordings') ? 'active' : ''}`}
-              >
-                <Mic size={18} />
-                <span>Recordings</span>
-              </Link>
-              <Link 
-                to="/admin/speakers" 
-                className={`nav-link ${isActive('/admin/speakers') ? 'active' : ''}`}
-              >
-                <Users size={18} />
-                <span>Speakers</span>
-              </Link>
             </>
           ) : null}
         </div>
@@ -98,6 +86,14 @@ export default function Navbar({ isAdmin, adminToken, currentSpeaker, onLogout }
           >
             {isAdmin ? 'Volunteer' : 'Admin'}
           </Link>
+          
+          <button 
+            className="btn btn-icon btn-sm"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
 
           {/* Mobile Menu Toggle */}
           <button 
@@ -134,14 +130,6 @@ export default function Navbar({ isAdmin, adminToken, currentSpeaker, onLogout }
               <Link to="/admin" className={`mobile-link ${isActive('/admin') ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)}>
                 <BarChart3 size={18} />
                 <span>Dashboard</span>
-              </Link>
-              <Link to="/admin/recordings" className={`mobile-link ${isActive('/admin/recordings') ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)}>
-                <Mic size={18} />
-                <span>Recordings</span>
-              </Link>
-              <Link to="/admin/speakers" className={`mobile-link ${isActive('/admin/speakers') ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)}>
-                <Users size={18} />
-                <span>Speakers</span>
               </Link>
             </>
           ) : null}
