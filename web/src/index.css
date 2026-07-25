@@ -1327,3 +1327,181 @@ p {
   max-width: 400px;
   margin: 0 auto;
 }
+
+/* ── Example Stepper (3 examples per scenario) ── */
+.example-stepper {
+  width: 100%;
+  margin-top: 20px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  border: 1px solid var(--border-glass);
+}
+
+.example-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.example-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.example-step.completed {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.25);
+  opacity: 0.8;
+}
+
+.example-step.active {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 12px var(--color-accent-glow);
+}
+
+.example-step.upcoming {
+  opacity: 0.6;
+}
+
+.step-indicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 2px solid var(--border-glass);
+  transition: all 0.3s ease;
+}
+
+.example-step.completed .step-indicator {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: white;
+}
+
+.example-step.active .step-indicator {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+  box-shadow: 0 0 8px var(--color-accent-glow);
+}
+
+.step-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.step-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.step-phrase {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.example-step.active .step-phrase,
+.example-step.completed .step-phrase {
+  color: var(--text-secondary);
+}
+
+.step-active-badge {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: var(--radius-xl);
+  background: var(--color-accent);
+  color: white;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Current Example Box ── */
+.current-example-box {
+  width: 100%;
+  margin-top: 16px;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(16, 185, 129, 0.04));
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.current-example-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.current-example-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.current-example-phrase {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  font-weight: 500;
+  margin: 0;
+  padding-left: 24px;
+  font-style: italic;
+}
+
+
+
+/* ── Scenario Complete Card ── */
+.scenario-complete-card {
+  text-align: center;
+  padding: 48px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.scenario-complete-icon {
+  font-size: 3rem;
+  margin-bottom: 8px;
+}
+
+.scenario-complete-card h2 {
+  font-size: 1.5rem;
+  color: var(--color-success);
+}
+
+.scenario-complete-card p {
+  color: var(--text-secondary);
+  max-width: 320px;
+  margin-bottom: 8px;
+}
+
+

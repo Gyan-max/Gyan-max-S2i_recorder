@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { Mic, RotateCcw, Check, Users, RefreshCw, Headphones, Lock, WifiOff, CheckCircle, Sparkles, ShieldCheck, Download, FileAudio, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Mic, RotateCcw, Check, Users, RefreshCw, Headphones, Lock, WifiOff, CheckCircle, Sparkles, ShieldCheck } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { SpeakerResponse, SpeakerRosterItem, SessionBatchInfo, TaskResponse, SpeakerClipItem } from '../types';
+import { SpeakerResponse, SpeakerRosterItem, SessionBatchInfo, TaskResponse } from '../types';
 import { saveAudioBlob, enqueueUpload, getUploadQueue, dequeueUpload } from '../db';
 import { API_BASE } from '../config';
 import AudioPlayer from '../components/AudioPlayer';
@@ -54,12 +54,11 @@ export default function HomePage({
   const [isConfirming, setIsConfirming] = useState(false);
   const [isRedoing, setIsRedoing] = useState(false);
   const [showBatchCompleteModal, setShowBatchCompleteModal] = useState(false);
+  const [showScenarioComplete, setShowScenarioComplete] = useState(false);
+  const [completedScenarioNo, setCompletedScenarioNo] = useState<number>(0);
 
-  // Downloads
-  const [myClips, setMyClips] = useState<SpeakerClipItem[]>([]);
-  const [showDownloads, setShowDownloads] = useState(false);
-  const [loadingClips, setLoadingClips] = useState(false);
-  const [showExamples, setShowExamples] = useState(true);
+
+
 
   // Onboarding Form
   const [fullName, setFullName] = useState<string>('');
@@ -508,15 +507,31 @@ export default function HomePage({
   };
 
   const handleConfirmKeep = async () => {
-    if (!currentSpeaker || !sessionBatch || !activeClipId || isConfirming) return;
+    if (!currentSpeaker || !sessionBatch || !activeClipId || !activeTask || isConfirming) return;
     setIsConfirming(true);
 
+    const currentTask = activeTask;
     if (!isOnline) {
       const updatedTasks = [...sessionBatch.tasks];
       updatedTasks[currentTaskIndex].status = 'recorded';
       setSessionBatch({ ...sessionBatch, tasks: updatedTasks });
-      advanceTask();
-      resetAudioState();
+
+      const scenarioTasksAfter = updatedTasks
+        .filter(t => t.intent === currentTask.intent && t.scenario_no === currentTask.scenario_no);
+      const totalInScenario = scenarioTasksAfter.length;
+      const recordedCount = scenarioTasksAfter.filter(t => t.status === 'recorded').length;
+      const allScenarioDone = recordedCount === totalInScenario && totalInScenario >= 3;
+
+      if (allScenarioDone) {
+        setCompletedScenarioNo(currentTask.scenario_no);
+        setShowScenarioComplete(true);
+        setNotice(`Scenario ${currentTask.scenario_no} complete! All examples recorded.`);
+        resetAudioState();
+      } else {
+        advanceTask();
+        setNotice(`Recording saved! (${recordedCount}/${totalInScenario} done)`);
+        resetAudioState();
+      }
       setIsConfirming(false);
       return;
     }
@@ -538,9 +553,23 @@ export default function HomePage({
         const updatedTasks = [...sessionBatch.tasks];
         updatedTasks[currentTaskIndex].status = 'recorded';
         setSessionBatch({ ...sessionBatch, tasks: updatedTasks });
-        advanceTask();
-        setNotice('Recording saved successfully!');
-        resetAudioState();
+
+        const scenarioTasksAfter = updatedTasks
+          .filter(t => t.intent === currentTask.intent && t.scenario_no === currentTask.scenario_no);
+        const totalInScenario = scenarioTasksAfter.length;
+        const recordedCount = scenarioTasksAfter.filter(t => t.status === 'recorded').length;
+        const allScenarioDone = recordedCount === totalInScenario && totalInScenario >= 3;
+
+        if (allScenarioDone) {
+          setCompletedScenarioNo(currentTask.scenario_no);
+          setShowScenarioComplete(true);
+          setNotice(`Scenario ${currentTask.scenario_no} complete! All examples recorded.`);
+          resetAudioState();
+        } else {
+          advanceTask();
+          setNotice(`Recording saved! (${recordedCount}/${totalInScenario} done)`);
+          resetAudioState();
+        }
       }
     } catch (e) {
       console.error(e);
@@ -596,6 +625,11 @@ export default function HomePage({
     }
   };
 
+  const handleNextScenario = () => {
+    setShowScenarioComplete(false);
+    advanceTask();
+  };
+
   const resetAudioState = () => {
     if (playbackTimerRef.current) clearTimeout(playbackTimerRef.current);
     if (audioUrl) URL.revokeObjectURL(audioUrl);
@@ -610,47 +644,19 @@ export default function HomePage({
     recordingStartTimeRef.current = null;
   };
 
-  const fetchMyClips = async () => {
-    if (!currentSpeaker) return;
-    setLoadingClips(true);
-    try {
-      const res = await fetch(`${API_BASE}/clips/my`, {
-        headers: { 'Authorization': `Bearer ${currentSpeaker.token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMyClips(data.clips);
-      }
-    } catch (e) {
-      console.error('Failed to fetch clips', e);
-    } finally {
-      setLoadingClips(false);
-    }
-  };
-
-  const downloadClip = async (clipId: string, filename: string) => {
-    if (!currentSpeaker) return;
-    try {
-      const res = await fetch(`${API_BASE}/clips/${clipId}/download`, {
-        headers: { 'Authorization': `Bearer ${currentSpeaker.token}` }
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename || `recording_${clipId.slice(0, 8)}.wav`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
-      }
-    } catch (e) {
-      console.error('Download failed', e);
-    }
-  };
-
   const activeTask: TaskResponse | undefined = sessionBatch?.tasks[currentTaskIndex];
+
+  // Group tasks by scenario (all 3 examples for the same prompt)
+  const scenarioTasks = useMemo(() => {
+    if (!sessionBatch || !activeTask) return [];
+    return sessionBatch.tasks
+      .filter(t => t.intent === activeTask.intent && t.scenario_no === activeTask.scenario_no)
+      .sort((a, b) => a.example_no - b.example_no);
+  }, [sessionBatch, activeTask]);
+
+  const currentExamplePos = scenarioTasks.findIndex(t => t.task_id === activeTask?.task_id);
+  const allExamples = activeTask?.examples || [];
+  const currentExampleText = allExamples[currentExamplePos] || '';
 
   // If showing speaker roster for switching
   if (showSpeakerRoster && speakerRoster.length > 0) {
@@ -859,8 +865,8 @@ export default function HomePage({
         <header className="volunteer-hero">
           <div>
             <span className="eyebrow"><Sparkles size={14} style={{ display: 'inline', marginRight: 4 }} /> Hinglish speech study</span>
-            <h1>Record a short response</h1>
-            <p>Follow one prompt at a time. Speak naturally in Hinglish.</p>
+            <h1>Record your responses</h1>
+            <p>Each prompt has 3 example phrasings — record one response for each example. Complete all 3 to move to the next prompt.</p>
           </div>
           <span className={`connection-status ${isOnline ? 'online' : 'offline'}`} role="status">
             <span aria-hidden="true" />
@@ -916,46 +922,28 @@ export default function HomePage({
           </div>
         )}
 
-        {/* Progress */}
-        {sessionBatch && (
-          <section className="card task-progress glass-card" aria-label="Task progress">
-            <div className="progress-info">
-              <span>Task {currentTaskIndex + 1} of {sessionBatch.tasks.length}</span>
-              <span>{sessionBatch.progress.intents_done} of {sessionBatch.progress.intents_total} sections complete</span>
-            </div>
-            <div className="progress-diamonds">
-              {sessionBatch.tasks.map((task, idx) => {
-                let statusClass = 'pending';
-                if (task.status === 'recorded') statusClass = 'recorded';
-                else if (idx === currentTaskIndex) statusClass = 'active';
 
-                return (
-                  <div
-                    key={task.task_id}
-                    className={`progress-diamond ${statusClass}`}
-                    onClick={() => setCurrentTaskIndex(idx)}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Prompt ${idx + 1}: ${task.status}`}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') setCurrentTaskIndex(idx);
-                    }}
-                    title={`Scenario ${task.scenario_no}`}
-                  />
-                );
-              })}
-            </div>
+
+        {/* Scenario Complete Celebration */}
+        {showScenarioComplete && (
+          <section className="card scenario-complete-card glass-card fade-in">
+            <div className="scenario-complete-icon">🎉</div>
+            <h2>Scenario {completedScenarioNo} Complete!</h2>
+            <p>You have recorded all 3 examples for this scenario. Ready for the next one?</p>
+            <button className="btn btn-primary btn-large" onClick={handleNextScenario}>
+              Next Scenario <span style={{ marginLeft: 4 }}>→</span>
+            </button>
           </section>
         )}
 
-        {/* Recording Task */}
-        {activeTask && (
+        {/* Recording Task — hidden while showing scenario complete */}
+        {activeTask && !showScenarioComplete && (
           <section className="card card-lg recording-card glass-card fade-in" aria-labelledby="task-title">
             <div className="task-header">
               <div className="task-meta-bar">
                 <div className="task-meta">
                   <span className="task-badge">Scenario {activeTask.scenario_no}</span>
-                  <span className="task-step-count">Task {currentTaskIndex + 1} of {sessionBatch?.tasks.length}</span>
+                  <span className="task-step-count">Example {currentExamplePos + 1} of {scenarioTasks.length || 3}</span>
                 </div>
                 {activeTask.register && (
                   <span className="task-register">🎭 Tone: <strong>{activeTask.register}</strong></span>
@@ -967,27 +955,49 @@ export default function HomePage({
                 <h1 id="task-title">{activeTask.text_hi}</h1>
               </div>
 
-              {activeTask.examples && activeTask.examples.length > 0 && (
-                <div className="examples-section">
-                  <div className="examples-header" onClick={() => setShowExamples(!showExamples)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span className="examples-label">
-                      <Sparkles size={14} style={{ display: 'inline', marginRight: 6 }} />
-                      Example phrasings (say one of these)
-                    </span>
-                    {showExamples ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                  </div>
-                  {showExamples && (
-                    <div className="examples-list">
-                      {activeTask.examples.map((ex, i) => (
-                        <div key={i} className="example-item">
-                          <span className="example-number">{i + 1}</span>
-                          <span className="example-text">{ex}</span>
+              {/* Example Stepper — shows all 3 examples for this prompt */}
+              {scenarioTasks.length > 1 && (
+                <div className="example-stepper">
+                  <div className="example-steps">
+                    {scenarioTasks.map((t, i) => (
+                      <div
+                        key={t.task_id}
+                        className={`example-step ${
+                          t.status === 'recorded' ? 'completed' : ''
+                        } ${t.task_id === activeTask?.task_id ? 'active' : ''} ${
+                          t.status !== 'recorded' && t.task_id !== activeTask?.task_id ? 'upcoming' : ''
+                        }`}
+                      >
+                        <div className="step-indicator">
+                          {t.status === 'recorded' ? (
+                            <Check size={14} />
+                          ) : (
+                            <span>{i + 1}</span>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <div className="step-detail">
+                          <span className="step-title">Example {i + 1}</span>
+                          <span className="step-phrase">{allExamples[i] || ''}</span>
+                        </div>
+                        {t.task_id === activeTask?.task_id && t.status !== 'recorded' && (
+                          <span className="step-active-badge">RECORD NOW</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {/* Current Example Text — highlighted so user knows what to say */}
+              <div className="current-example-box">
+                <div className="current-example-header">
+                  <Sparkles size={16} className="icon-accent" />
+                  <span className="current-example-label">
+                    Example {currentExamplePos + 1} of {scenarioTasks.length || 3} — Say this phrase:
+                  </span>
+                </div>
+                <p className="current-example-phrase">“{currentExampleText}”</p>
+              </div>
             </div>
 
             {(recordingState === 'idle' || recordingState === 'recording') ? (
@@ -1002,7 +1012,7 @@ export default function HomePage({
                 <p className="record-hint" aria-live="polite">
                   {recordingState === 'recording'
                     ? 'Recording in progress. Press Space or click Stop when finished.'
-                    : 'Ready when you are. Press Space or click Start recording.'}
+                    : `Ready to record Example ${currentExamplePos + 1}. Press Space or click Start to say the phrase above.`}
                 </p>
 
                 {recordingError && <div className="recording-error" role="alert">{recordingError}</div>}
@@ -1046,7 +1056,11 @@ export default function HomePage({
                     onEnded={() => { setIsPlayingBack(false); setHasListened(true); }}
                   />
                   <p className="listen-guidance">
-                    {hasListened ? 'Recording reviewed! Press Enter to keep or R to record again.' : isPlayingBack ? 'Listening… keep will unlock when playback finishes.' : 'Please listen to the full recording before keeping it.'}
+                    {hasListened
+                      ? 'Recording reviewed! Press Enter to keep or R to record again.'
+                      : isPlayingBack
+                        ? 'Listening… keep will unlock when playback finishes.'
+                        : `Listen to your recording for Example ${currentExamplePos + 1}. When done, you can keep it or try again.`}
                   </p>
                 </div>
 
@@ -1054,7 +1068,7 @@ export default function HomePage({
                   <label className="form-label">Type what you said (optional):</label>
                   <textarea
                     className="form-input"
-                    placeholder={`Examples: "${activeTask.examples[0] || ''}"`}
+                    placeholder={`What you said for Example ${currentExamplePos + 1}: "${currentExampleText}"`}
                     value={transcriptEdit}
                     onChange={(e) => setTranscriptEdit(e.target.value)}
                   />
@@ -1079,51 +1093,6 @@ export default function HomePage({
 
         {!sessionBatch && !showOnboarding && !showSpeakerConfirm && (
           <div className="card loading-task" role="status">Loading your next recording task…</div>
-        )}
-
-        {/* My Recordings Section - Download */}
-        {currentSpeaker && (
-          <section className="card glass-card my-recordings-section">
-            <div
-              className="my-recordings-header"
-              onClick={() => { setShowDownloads(!showDownloads); if (!showDownloads) fetchMyClips(); }}
-              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileAudio size={18} />
-                <h3 style={{ margin: 0 }}>My Recordings</h3>
-              </div>
-              {showDownloads ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </div>
-
-            {showDownloads && (
-              <div className="my-recordings-list">
-                {loadingClips ? (
-                  <p style={{ padding: '16px 0', color: 'var(--text-secondary)' }}>Loading your recordings...</p>
-                ) : myClips.length === 0 ? (
-                  <p style={{ padding: '16px 0', color: 'var(--text-secondary)' }}>No recordings yet. Start recording above!</p>
-                ) : (
-                  myClips.map(clip => (
-                    <div key={clip.clip_id} className="my-recording-item">
-                      <div className="recording-item-info">
-                        <span className="recording-item-intent">{clip.intent.replace(/^[A-Z]+\./, '').replace(/_/g, ' ')}</span>
-                        <span className="recording-item-meta">
-                          {clip.domain} &middot; {clip.status} &middot; {clip.duration_s ? `${clip.duration_s.toFixed(1)}s` : 'N/A'}
-                        </span>
-                      </div>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => downloadClip(clip.clip_id, clip.filename || `recording_${clip.clip_id.slice(0, 8)}.wav`)}
-                      >
-                        <Download size={14} />
-                        Download
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </section>
         )}
 
         {/* Batch Complete Celebration Modal */}

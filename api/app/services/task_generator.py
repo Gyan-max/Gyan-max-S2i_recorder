@@ -44,9 +44,17 @@ async def get_or_create_session_batch(
     pending_tasks = list(result.scalars().all())
     
     if pending_tasks:
-        # Return the existing pending batch details
         first_task = pending_tasks[0]
-        return first_task.domain, first_task.batch_no, pending_tasks
+        # Return ALL tasks in this batch (recorded + pending) so the frontend
+        # can show the complete 3-example stepper even when some are done
+        batch_stmt = select(Task).where(
+            Task.speaker_id == speaker_id,
+            Task.domain == first_task.domain,
+            Task.batch_no == first_task.batch_no
+        ).order_by(Task.intent, Task.scenario_no, Task.example_no)
+        batch_res = await db.execute(batch_stmt)
+        all_batch_tasks = list(batch_res.scalars().all())
+        return first_task.domain, first_task.batch_no, all_batch_tasks
 
     # 2. No pending batch. Determine which domain to run.
     domain = effective_domain
@@ -75,17 +83,15 @@ async def get_or_create_session_batch(
 
     if max_batch is None:
         batch_no = 1
-    elif max_batch < 3:
+    elif max_batch < 1:
         batch_no = max_batch + 1
     else:
-        # Speaker has completed all 3 batches for this domain.
-        # If they requested this domain explicitly, we can reset or roll over.
-        # Otherwise, let's offer a different domain or raise completion.
+        # Speaker has completed a batch for this domain (all 3 examples done).
+        # If they requested this domain explicitly, we can continue with more batches.
+        # Otherwise, let's offer a different domain.
         if requested_domain:
-            # Continue batch numbering to avoid unique constraint conflicts
             batch_no = max_batch + 1
         else:
-            # Try to find another domain that is not fully completed by this speaker
             available_domains = ["BNK", "EDU", "TRV", "VAS"]
             for d in available_domains:
                 if d == domain:
@@ -96,12 +102,11 @@ async def get_or_create_session_batch(
                 )
                 d_res = await db.execute(d_stmt)
                 d_max = d_res.scalar()
-                if d_max is None or d_max < 3:
+                if d_max is None or d_max < 1:
                     domain = d
                     batch_no = (d_max or 0) + 1
                     break
             else:
-                # All domains completed! Continue batch numbering to allow continuous testing
                 batch_no = max_batch + 1
 
     # 4. Generate tasks for the batch (example_no = batch_no)
@@ -130,22 +135,23 @@ async def get_or_create_session_batch(
         # Shuffle scenarios stably per speaker
         shuffled_scenarios = stable_shuffle(scenarios, speaker_id)
         
-        # Create a task for each scenario with example_no cycling 1-3
+        # Create 3 tasks per scenario (one for each example 1, 2, 3)
+        # so the speaker records all 3 examples before moving to the next scenario
         for idx, scenario in enumerate(shuffled_scenarios, 1):
-            example_no = ((batch_no - 1) % 3) + 1
-            task = Task(
-                speaker_id=speaker_id,
-                domain=domain,
-                intent=intent,
-                scenario_id=scenario.scenario_id,
-                scenario_no=idx,
-                example_no=example_no,
-                batch_no=batch_no,
-                status="pending",
-                redo_count=0
-            )
-            db.add(task)
-            new_tasks.append(task)
+            for example_no in range(1, 4):
+                task = Task(
+                    speaker_id=speaker_id,
+                    domain=domain,
+                    intent=intent,
+                    scenario_id=scenario.scenario_id,
+                    scenario_no=idx,
+                    example_no=example_no,
+                    batch_no=batch_no,
+                    status="pending",
+                    redo_count=0
+                )
+                db.add(task)
+                new_tasks.append(task)
             
     await db.commit()
     
