@@ -132,8 +132,9 @@ This is the app's core data-quality guarantee:
 
 ## 3. Admin-facing features (`/admin`)
 
-Reachable via username/password login (`admin` / `admin123` by default —
-**change this in any real deployment**, see §6).
+Reachable via username/password login. Credentials come from `ADMIN_USERNAME`
+/ `ADMIN_PASSWORD` in `.env`; in development a blank password falls back to
+`admin123`. Production startup fails on a blank or well-known password.
 
 ### 3.1 Statistics dashboard
 Six at-a-glance tonal stat cards: total speakers, total recordings,
@@ -231,7 +232,7 @@ npm run dev
   (see `.env.example` for what to override in a real deployment). The
   database schema and all 198 scenarios are (re-)created automatically on
   first startup.
-- Admin login: `admin` / `admin123`.
+- Admin login: `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env` (dev default: `admin` / `admin123`).
 
 ---
 

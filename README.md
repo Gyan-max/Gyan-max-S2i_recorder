@@ -43,14 +43,12 @@ A comprehensive web-based speech data collection platform for building Hinglish 
 git clone https://github.com/yourusername/s2i-hinglish-recorder.git
 cd s2i-hinglish-recorder
 
-# Run the automated build script
-./build.sh
-
-# Start in development mode
 # Terminal 1 - API Server
 cd api
-source .venv/bin/activate
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# The schema and all 198 scenarios are created automatically on first start.
 
 # Terminal 2 - Web Server  
 cd web
@@ -59,8 +57,10 @@ npm run dev
 
 Visit `http://localhost:3000` to access the application.
 
-### Default Credentials
-- **Admin Panel**: username `admin`, password `admin123` (change in production!)
+### Admin Credentials
+Set `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `.env` (copy from `.env.example`).
+Leave `ADMIN_PASSWORD` blank in development and it defaults to `admin123`.
+In production the API refuses to start with a blank or well-known password.
 
 ## 🎯 Usage
 
