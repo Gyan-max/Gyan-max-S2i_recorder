@@ -6,11 +6,18 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - JWT_SECRET_KEY=change-this-secret-in-production
-      - ADMIN_USERNAME=${ADMIN_USERNAME}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - CORS_ORIGINS=http://localhost:3000,http://localhost:3001
-      - DATABASE_URL=sqlite+aiosqlite:///./data/s2i_recorder.db
+      # Values come from the .env file next to this compose file; no secrets
+      # are hardcoded here.
+      - APP_ENV=${APP_ENV:-development}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?set JWT_SECRET_KEY in .env}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:?set ADMIN_USERNAME in .env}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      # Absolute paths that match the mounts below, so data survives restarts.
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/s2i_recorder.db
+      - STORAGE_BASE_PATH=/app/storage
+      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-25}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - ./storage:/app/storage
       - ./data:/app/data

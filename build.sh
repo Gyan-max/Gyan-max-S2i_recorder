@@ -57,13 +57,11 @@ pip install --upgrade pip
 pip install -r requirements.txt
 echo -e "${GREEN}✅ Installed Python dependencies${NC}"
 
-# Initialize database
-echo "🗄️  Initializing database..."
-python -c "from app.database import init_db; import asyncio; asyncio.run(init_db())"
-
-# Seed scenarios
-echo "🌱 Seeding scenario data..."
-python -c "from app.seed import seed_scenarios; import asyncio; asyncio.run(seed_scenarios())"
+# The database schema and scenario seeding both run automatically in the API's
+# startup lifespan (api/app/main.py). The previous calls here referenced
+# `app.database.init_db`, which does not exist, and called seed_scenarios()
+# without its required session argument - so this script always failed here.
+echo "🗄️  Database schema and scenarios are created on first API start."
 
 echo -e "${GREEN}✅ Backend setup complete${NC}"
 
