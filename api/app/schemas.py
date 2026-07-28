@@ -77,6 +77,8 @@ class SpeakerRosterResponse(BaseModel):
 # Task schemas
 class TaskResponse(BaseModel):
     task_id: str
+    # Server-authoritative: the client must never choose or override this.
+    domain: str
     intent: str
     scenario_id: str
     scenario_no: int
