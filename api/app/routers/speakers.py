@@ -5,7 +5,7 @@ from datetime import datetime
 from ..database import get_db
 from ..models import Speaker, DeviceSpeaker, Device
 from ..schemas import SpeakerCreate, SpeakerResponse, SpeakerRosterResponse, SpeakerRosterItem
-from ..auth import verify_device
+from ..auth import verify_device, get_current_speaker
 from ..services.consent import ConsentService, get_current_consent_version
 
 router = APIRouter(tags=["Speakers"])
@@ -158,19 +158,27 @@ async def get_device_speakers(
 @router.get("/speakers/{speaker_id}/consent", status_code=status.HTTP_200_OK)
 async def get_speaker_consent_status(
     speaker_id: str,
+    speaker: Speaker = Depends(get_current_speaker),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get consent status for a speaker (Phase 2 endpoint for testing).
-    
-    Returns detailed consent information for verification.
+    Get consent status for a speaker.
+
+    Requires the speaker's own bearer token, so speaker IDs cannot be walked to
+    read other volunteers' consent records.
     """
+    if speaker_id != speaker.speaker_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "ACCESS_DENIED", "message": "Cannot read another speaker's consent status"}
+        )
+
     consent_status = await ConsentService.get_speaker_consent_status(speaker_id, db)
-    
+
     if not consent_status:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "SPEAKER_NOT_FOUND", "message": "Speaker not found"}
         )
-    
+
     return consent_status

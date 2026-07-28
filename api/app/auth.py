@@ -7,20 +7,24 @@ Handles:
 - Dependencies for protected endpoints
 """
 
+import hmac
+import logging
+import time
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
-from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from . import config
 from .database import get_db
 from .models import Speaker, Device
 
-from .config import (
-    SECRET_KEY, ALGORITHM, ADMIN_USERNAME, ADMIN_PASSWORD, ACCESS_TOKEN_EXPIRE_HOURS
-)
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
@@ -150,16 +154,16 @@ def create_admin_token(username: str) -> dict:
     Creates a JWT token for admin authentication.
     Returns dict with token and expiration.
     """
-    expires_at = datetime.utcnow() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
-    
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=config.ACCESS_TOKEN_EXPIRE_HOURS)
+
     payload = {
         "sub": username,
         "exp": expires_at,
         "type": "admin"
     }
-    
-    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-    
+
+    token = jwt.encode(payload, config.SECRET_KEY, algorithm=config.ALGORITHM)
+
     return {
         "token": token,
         "expires_at": expires_at
@@ -169,9 +173,53 @@ def create_admin_token(username: str) -> dict:
 def verify_admin_credentials(username: str, password: str) -> bool:
     """
     Verifies admin username and password.
-    In production, this should check against hashed passwords in database.
+
+    Uses hmac.compare_digest to avoid leaking the shared prefix length through
+    timing. Both fields are always compared so the work is constant.
     """
-    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
+    username_ok = hmac.compare_digest(username.encode(), config.ADMIN_USERNAME.encode())
+    password_ok = hmac.compare_digest(password.encode(), config.ADMIN_PASSWORD.encode())
+    return username_ok and password_ok
+
+
+# ==================== Login Rate Limiting ====================
+# In-process counter keyed by client IP. A multi-worker deployment would need
+# a shared store (Redis) for this to hold globally.
+_login_attempts: dict[str, list[float]] = defaultdict(list)
+
+
+def check_login_rate_limit(client_ip: str) -> None:
+    """
+    Raises 429 once a client exceeds LOGIN_MAX_ATTEMPTS within the lockout
+    window.
+    """
+    now = time.monotonic()
+    window_start = now - config.LOGIN_LOCKOUT_SECONDS
+
+    attempts = [t for t in _login_attempts[client_ip] if t > window_start]
+    _login_attempts[client_ip] = attempts
+
+    if len(attempts) >= config.LOGIN_MAX_ATTEMPTS:
+        retry_after = int(attempts[0] + config.LOGIN_LOCKOUT_SECONDS - now) + 1
+        logger.warning("Admin login rate limit hit for %s", client_ip)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "code": "TOO_MANY_ATTEMPTS",
+                "message": f"Too many failed login attempts. Try again in {retry_after}s.",
+            },
+            headers={"Retry-After": str(retry_after)},
+        )
+
+
+def record_failed_login(client_ip: str) -> None:
+    """Records a failed attempt against the rate-limit window."""
+    _login_attempts[client_ip].append(time.monotonic())
+
+
+def clear_login_attempts(client_ip: str) -> None:
+    """Clears the counter after a successful login."""
+    _login_attempts.pop(client_ip, None)
 
 
 async def get_current_admin(
@@ -182,32 +230,24 @@ async def get_current_admin(
     Returns the token payload if valid.
     """
     token = credentials.credentials
-    
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        
-        # Verify token type
-        if payload.get("type") != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type"
-            )
-        
-        # Check expiration (jwt.decode already does this, but explicit check)
-        exp = payload.get("exp")
-        if exp and datetime.fromtimestamp(exp) < datetime.utcnow():
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has expired"
-            )
-        
-        return payload
-        
-    except JWTError as e:
+        # jwt.decode verifies both the signature and the exp claim.
+        payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
+    except JWTError:
+        # Do not echo the library's parse error back to the caller.
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid authentication credentials: {str(e)}"
+            detail="Invalid or expired authentication credentials",
         )
+
+    if payload.get("type") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+        )
+
+    return payload
 
 
 # ==================== Task Ownership Verification ====================

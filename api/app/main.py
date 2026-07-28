@@ -1,31 +1,84 @@
-from fastapi import FastAPI, Depends, status
-from fastapi.middleware.cors import CORSMiddleware
 import logging
-from datetime import datetime
+import os
+from contextlib import asynccontextmanager
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from . import config
 from .database import engine, Base, AsyncSessionLocal
 from .routers import devices, speakers, health, session, admin, clips
 from .seed import seed_scenarios
+from .services.storage import init_storage
 
 # Set up logging configuration
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
 
+
+async def _run_startup() -> None:
+    """Validate config, create the schema, prepare storage, and seed scenarios."""
+    for warning in config.validate_config():
+        logger.warning("Config: %s", warning)
+
+    logger.info("Environment: %s", config.APP_ENV)
+    logger.info("Database:    %s", config.DATABASE_URL)
+    logger.info("Storage:     %s", config.STORAGE_BASE_PATH)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    # Migration: add assigned_domain column if missing
+    try:
+        from sqlalchemy import inspect, text as sa_text
+
+        async with engine.begin() as conn:
+            def _add_column(sync_conn):
+                inspector = inspect(sync_conn)
+                columns = [col["name"] for col in inspector.get_columns("speakers")]
+                if "assigned_domain" not in columns:
+                    sync_conn.execute(sa_text("ALTER TABLE speakers ADD COLUMN assigned_domain VARCHAR"))
+                    logger.info("Migration: added assigned_domain column to speakers table")
+
+            await conn.run_sync(_add_column)
+    except Exception as e:
+        logger.warning(f"Migration could not add assigned_domain column: {e}")
+
+    # Create storage directories up front so the first upload cannot fail on a
+    # missing parent directory.
+    init_storage()
+
+    async with AsyncSessionLocal() as db:
+        try:
+            await seed_scenarios(db)
+        except Exception as e:
+            logger.error(f"Error seeding scenarios: {e}")
+
+    logger.info("Startup complete. All endpoints ready.")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await _run_startup()
+    yield
+    await engine.dispose()
+
+
 app = FastAPI(
-    title="Hinglish S2I Phase 5: Complete Recording System",
-    description="Full system with IndexedDB persistence, clip management, and admin panel",
-    version="5.0.0"
+    title="Hinglish S2I Recorder",
+    description="Speech data collection platform for Hinglish speech-to-intent models",
+    version="5.0.0",
+    lifespan=lifespan,
 )
 
-from .config import CORS_ORIGINS
-
-# Enable CORS for frontend web app access
+# An empty origin list must never widen to "*": combined with
+# allow_credentials that would let any site drive the API with real credentials.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_origins=config.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Device-ID"],
 )
 
 # Include all routers
@@ -36,67 +89,14 @@ app.include_router(session.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(clips.router, prefix="/api")
 
-@app.on_event("startup")
-async def startup_event():
-    """Application startup handler."""
-    logger.info("Phase 5 Startup: Initializing database schema...")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    # Migration: add assigned_domain column if missing
-    try:
-        from sqlalchemy import inspect, text as sa_text
-        async with engine.begin() as conn:
-            def _add_column(sync_conn):
-                inspector = inspect(sync_conn)
-                columns = [col['name'] for col in inspector.get_columns('speakers')]
-                if 'assigned_domain' not in columns:
-                    sync_conn.execute(sa_text('ALTER TABLE speakers ADD COLUMN assigned_domain VARCHAR'))
-                    logger.info("Migration: added assigned_domain column to speakers table")
-            await conn.run_sync(_add_column)
-    except Exception as e:
-        logger.warning(f"Migration could not add assigned_domain column: {e}")
-    
-    logger.info("Phase 5 Startup: Seeding scenarios...")
-    async with AsyncSessionLocal() as db:
-        try:
-            await seed_scenarios(db)
-        except Exception as e:
-            logger.error(f"Error seeding scenarios: {e}")
-        
-    logger.info("Phase 5 startup sequence complete. All endpoints ready.")
-
 @app.get("/")
 async def root():
-    """Root endpoint - Full system information."""
+    """Root endpoint - service metadata. Full API reference lives at /docs."""
     return {
         "project": "Hinglish S2I Recorder",
-        "phase": "Phase 5: IndexedDB Offline Persistence",
         "status": "active",
         "version": "5.0.0",
-        "volunteer_endpoints": [
-            "POST /api/devices - Register device",
-            "POST /api/speakers - Create speaker with consent", 
-            "GET /api/devices/{device_id}/speakers - Get device roster",
-            "GET /api/speakers/{speaker_id}/consent - Check consent status",
-            "GET /api/session/next - Get next task batch",
-            "GET /api/session/progress - Get detailed progress",
-            "POST /api/clips/init - Initialize clip upload",
-            "POST /api/clips/upload - Upload audio file",
-            "POST /api/clips/{clip_id}/confirm - Confirm recording",
-            "POST /api/clips/{clip_id}/discard - Discard recording",
-            "GET /api/health - Health check"
-        ],
-        "admin_endpoints": [
-            "POST /api/admin/login - Admin authentication",
-            "GET /api/admin/stats - System statistics",
-            "GET /api/admin/coverage - Domain/intent coverage",
-            "GET /api/admin/review-queue - Clips awaiting review",
-            "POST /api/admin/review - Review clip (approve/reject)",
-            "POST /api/admin/export - Generate dataset export",
-            "POST /api/admin/withdraw - Speaker withdrawal",
-            "POST /api/admin/qr-generate - Generate QR codes"
-        ],
-
-        "documentation": "http://localhost:8000/docs"
+        "environment": config.APP_ENV,
+        "documentation": "/docs",
+        "health": "/api/health",
     }
