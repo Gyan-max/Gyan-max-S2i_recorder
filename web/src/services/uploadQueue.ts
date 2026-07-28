@@ -17,12 +17,12 @@ async function requestJson(url: string, init: RequestInit): Promise<Response> {
 }
 
 async function syncItem(apiBase: string, item: UploadQueueItem): Promise<boolean> {
-  if (!item.confirmationRequested || !item.taskId) {
+  if (!item.taskId) {
     return false;
   }
 
-  let serverClipId = item.serverClipId;
-  if (!serverClipId) {
+  let serverClipId = item.serverClipId ?? item.clipId;
+  if (item.needsInit && !item.serverClipId) {
     const initResponse = await requestJson(`${apiBase}/clips/init`, {
       method: 'POST',
       headers: {

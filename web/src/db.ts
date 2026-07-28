@@ -162,6 +162,37 @@ export async function dequeueUpload(clipId: string): Promise<void> {
 }
 
 /**
+ * Update fields on a queue item.
+ */
+export async function updateUploadQueueItem(
+  clipId: string,
+  updates: Partial<UploadQueueItem>,
+): Promise<void> {
+  const database = await initDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([QUEUE_STORE], 'readwrite');
+    const store = transaction.objectStore(QUEUE_STORE);
+    const getRequest = store.get(clipId);
+
+    getRequest.onsuccess = () => {
+      const item = getRequest.result as UploadQueueItem | undefined;
+      if (!item) {
+        resolve();
+        return;
+      }
+
+      const updatedItem = { ...item, ...updates };
+      const putRequest = store.put(updatedItem);
+      putRequest.onsuccess = () => resolve();
+      putRequest.onerror = () => reject(putRequest.error);
+    };
+
+    getRequest.onerror = () => reject(getRequest.error);
+  });
+}
+
+/**
  * Update retry count for a queue item
  */
 export async function incrementRetryCount(clipId: string): Promise<void> {

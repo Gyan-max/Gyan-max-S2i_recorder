@@ -127,9 +127,12 @@ export interface UploadQueueItem {
   taskId: string;
   /** True when captured offline and no server clip exists yet. */
   needsInit: boolean;
+  /** Set after init returns the server-side clip id for offline uploads. */
+  serverClipId?: string;
   /** Carried so the queued clip can be confirmed, not just uploaded. */
   transcriptEdit?: string;
   prompted: boolean;
+  lastError?: string;
   timestamp: number;
   retryCount: number;
 }
