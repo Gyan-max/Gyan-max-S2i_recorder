@@ -32,7 +32,12 @@ def _get_path(name: str, default: Path) -> Path:
 
 
 # ==================== Environment ====================
-APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+# Render-hosted services should behave like production even if the platform
+# variable is missing, because the fallback dev credentials are not safe there.
+_IS_RENDER_HOSTED = os.getenv("RENDER", "").strip().lower() == "true" or bool(
+    os.getenv("RENDER_SERVICE_ID")
+)
+APP_ENV = os.getenv("APP_ENV", "production" if _IS_RENDER_HOSTED else "development").strip().lower()
 IS_PRODUCTION = APP_ENV == "production"
 
 # ==================== Database ====================

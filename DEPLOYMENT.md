@@ -70,6 +70,10 @@ Copy `.env.example` to `.env` and set the production values. The full list of
 supported settings lives in `.env.example`; the ones that matter for a
 production deploy are:
 
+On Render, the API now treats a hosted service as production even if
+`APP_ENV` is missing, so leaving the secrets unset will fail startup instead of
+silently using the development defaults.
+
 ```bash
 # Turns on fail-hard validation. Without this the API silently falls back to
 # development defaults (ephemeral JWT key, 'admin123' password).
