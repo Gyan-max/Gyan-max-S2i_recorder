@@ -117,12 +117,19 @@ export interface ClipReviewItem {
 
 // IndexedDB Types
 export interface UploadQueueItem {
+  /** Server clip id, or a local placeholder while offline (needsInit=true). */
   clipId: string;
   blob: Blob;
   mimeType: string;
   token: string;
   deviceId: string;
-  taskId?: string;
+  /** Required to initialise the clip on the server when the queue drains. */
+  taskId: string;
+  /** True when captured offline and no server clip exists yet. */
+  needsInit: boolean;
+  /** Carried so the queued clip can be confirmed, not just uploaded. */
+  transcriptEdit?: string;
+  prompted: boolean;
   timestamp: number;
   retryCount: number;
 }

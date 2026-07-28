@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Mic, RotateCcw, Check, Users, RefreshCw, Headphones, Lock, WifiOff, CheckCircle, Sparkles, ShieldCheck } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { SpeakerResponse, SpeakerRosterItem, SessionBatchInfo, TaskResponse } from '../types';
-import { saveAudioBlob, enqueueUpload, getUploadQueue, dequeueUpload } from '../db';
+import { saveAudioBlob, enqueueUpload, getUploadQueue, dequeueUpload, deleteAudioBlob } from '../db';
 import { API_BASE } from '../config';
 import AudioPlayer from '../components/AudioPlayer';
 import AudioVisualizer from '../components/AudioVisualizer';
@@ -77,6 +77,7 @@ export default function HomePage({
   const isMountedRef = useRef(true);
   const furthestPlaybackRef = useRef(0);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const pendingRecordingRef = useRef<{ blob: Blob; mimeType: string } | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -142,27 +143,81 @@ export default function HomePage({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [recordingState, hasListened, isConfirming, isRedoing]);
 
+  /**
+   * Drains recordings captured while offline (or whose upload failed).
+   * Each item goes through the full init -> upload -> confirm sequence;
+   * stopping after upload leaves the clip unconfirmed and unprocessed.
+   */
   const processUploadQueue = async () => {
+    let synced = 0;
     try {
       const queue = await getUploadQueue();
       for (const item of queue) {
         try {
+          let clipId = item.clipId;
+
+          // Offline recordings have no server-side clip yet.
+          if (item.needsInit) {
+            const initRes = await fetch(`${API_BASE}/clips/init`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Device-ID': item.deviceId,
+                'Authorization': `Bearer ${item.token}`
+              },
+              body: JSON.stringify({ task_id: item.taskId, mime_type: item.mimeType })
+            });
+
+            if (initRes.status === 409) {
+              // Already recorded elsewhere - drop it rather than retry forever.
+              await dequeueUpload(item.clipId);
+              await deleteAudioBlob(item.clipId);
+              continue;
+            }
+            if (!initRes.ok) continue;
+            clipId = (await initRes.json()).clip_id;
+          }
+
           const formData = new FormData();
           formData.append('file', item.blob, 'audio_record');
-          const res = await fetch(`${API_BASE}/clips/upload?clip_id=${item.clipId}`, {
+          const uploadRes = await fetch(`${API_BASE}/clips/upload?clip_id=${clipId}`, {
             method: 'POST',
-            headers: { 'X-Device-ID': item.deviceId },
+            headers: {
+              'X-Device-ID': item.deviceId,
+              'Authorization': `Bearer ${item.token}`
+            },
             body: formData
           });
-          if (res.ok) {
-            await dequeueUpload(item.clipId);
-          }
+          if (!uploadRes.ok) continue;
+
+          const confirmRes = await fetch(`${API_BASE}/clips/${clipId}/confirm`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${item.token}`
+            },
+            body: JSON.stringify({
+              transcript_edit: item.transcriptEdit || undefined,
+              prompted: item.prompted
+            })
+          });
+          if (!confirmRes.ok) continue;
+
+          // Only drop the local copy once the server owns the recording.
+          await dequeueUpload(item.clipId);
+          await deleteAudioBlob(item.clipId);
+          synced += 1;
         } catch (e) {
           console.error('Queued upload failed for', item.clipId, e);
         }
       }
     } catch (e) {
       console.error('Failed to process upload queue', e);
+    }
+
+    if (synced > 0) {
+      setNotice(`${synced} offline recording${synced > 1 ? 's' : ''} uploaded successfully.`);
+      if (currentSpeaker) fetchSessionBatch(selectedDomain);
     }
   };
 
@@ -248,9 +303,17 @@ export default function HomePage({
           const pendingIndex = data.batch.tasks.findIndex((t: TaskResponse) => t.status === 'pending');
           setCurrentTaskIndex(pendingIndex >= 0 ? pendingIndex : 0);
         }
+      } else {
+        const errData = await res.json().catch(() => ({} as any));
+        setRecordingError(
+          errData?.detail?.code === 'SCENARIOS_NOT_SEEDED'
+            ? 'No recording tasks are available yet. Please contact the study coordinator.'
+            : 'Could not load your recording tasks. Please refresh and try again.'
+        );
       }
     } catch (e) {
       console.error('Failed to load session batch', e);
+      setRecordingError('Could not reach the server to load your tasks. Check your connection and refresh.');
     }
   };
 
@@ -402,13 +465,16 @@ export default function HomePage({
           }
         }, 200);
 
+        // Keep the raw take so the offline Keep path can queue the real bytes.
+        pendingRecordingRef.current = { blob: finalBlob, mimeType: actualMimeType };
+
         if (isOnline) {
           initializeClipOnBackend(finalBlob, actualMimeType);
         } else {
           const localClipId = crypto.randomUUID();
           setActiveClipId(localClipId);
           await saveAudioBlob(localClipId, finalBlob);
-          setNotice('Saved on this device. It will remain available while you are offline.');
+          setNotice('Saved on this device. It will upload automatically when you are back online.');
         }
       };
 
@@ -468,39 +534,50 @@ export default function HomePage({
         advanceTask();
         setRecordingState('idle');
       } else {
+        setRecordingError('Could not prepare the upload. You can still press Keep - the recording will be saved and uploaded when the connection recovers.');
         setRecordingState('reviewing');
       }
     } catch (e) {
       console.error(e);
+      setRecordingError('Could not reach the server. Press Keep to save this recording on your device; it will upload automatically later.');
       setRecordingState('reviewing');
     }
   };
 
   const uploadAudioBlob = async (clipId: string, blob: Blob, mimeType: string) => {
+    const task = sessionBatch?.tasks[currentTaskIndex];
     try {
       const formData = new FormData();
       formData.append('file', blob, 'audio_record');
 
       const res = await fetch(`${API_BASE}/clips/upload?clip_id=${clipId}`, {
         method: 'POST',
-        headers: { 'X-Device-ID': deviceId },
+        headers: {
+          'X-Device-ID': deviceId,
+          'Authorization': `Bearer ${currentSpeaker?.token ?? ''}`
+        },
         body: formData
       });
       if (handleAuthError(res.status)) return;
       if (res.ok) {
         setRecordingState('reviewing');
       } else {
-        throw new Error('Upload failed');
+        throw new Error(`Upload failed with status ${res.status}`);
       }
     } catch (e) {
       console.error('Upload failed. Saving to offline queue...', e);
-      if (currentSpeaker) {
+      if (currentSpeaker && task) {
         await saveAudioBlob(clipId, blob);
         await enqueueUpload({
           clipId, blob, mimeType,
           token: currentSpeaker.token,
-          deviceId
+          deviceId,
+          taskId: task.task_id,
+          // Clip row already exists server-side; only upload+confirm remain.
+          needsInit: false,
+          prompted: isPrompted
         });
+        setNotice('Upload will retry automatically - your recording is safe on this device.');
       }
       setRecordingState('reviewing');
     }
@@ -512,6 +589,35 @@ export default function HomePage({
 
     const currentTask = activeTask;
     if (!isOnline) {
+      // Queue the recording before advancing, otherwise the audio sits in
+      // IndexedDB under an id the server never issued and can never be sent.
+      const pending = pendingRecordingRef.current;
+      if (!pending) {
+        setRecordingError('That recording is no longer available. Please record this task again.');
+        setIsConfirming(false);
+        return;
+      }
+
+      try {
+        await saveAudioBlob(activeClipId, pending.blob);
+        await enqueueUpload({
+          clipId: activeClipId,
+          blob: pending.blob,
+          mimeType: pending.mimeType,
+          token: currentSpeaker.token,
+          deviceId,
+          taskId: currentTask.task_id,
+          needsInit: true,
+          transcriptEdit: transcriptEdit || undefined,
+          prompted: isPrompted
+        });
+      } catch (e) {
+        console.error('Failed to queue offline recording', e);
+        setRecordingError('We could not save that recording on this device. Please try again.');
+        setIsConfirming(false);
+        return;
+      }
+
       const updatedTasks = [...sessionBatch.tasks];
       updatedTasks[currentTaskIndex].status = 'recorded';
       setSessionBatch({ ...sessionBatch, tasks: updatedTasks });
@@ -525,11 +631,11 @@ export default function HomePage({
       if (allScenarioDone) {
         setCompletedScenarioNo(currentTask.scenario_no);
         setShowScenarioComplete(true);
-        setNotice(`Scenario ${currentTask.scenario_no} complete! All examples recorded.`);
+        setNotice(`Scenario ${currentTask.scenario_no} complete! Saved on this device - will upload when you are online.`);
         resetAudioState();
       } else {
         advanceTask();
-        setNotice(`Recording saved! (${recordedCount}/${totalInScenario} done)`);
+        setNotice(`Saved on this device (${recordedCount}/${totalInScenario} done). Will upload when you are online.`);
         resetAudioState();
       }
       setIsConfirming(false);
@@ -570,9 +676,44 @@ export default function HomePage({
           setNotice(`Recording saved! (${recordedCount}/${totalInScenario} done)`);
           resetAudioState();
         }
+      } else {
+        // Never advance the task here - the recording is not saved.
+        const errData = await res.json().catch(() => ({} as any));
+        const serverMessage = errData?.detail?.message || errData?.detail;
+        setRecordingError(
+          typeof serverMessage === 'string'
+            ? `Could not save this recording: ${serverMessage}`
+            : 'Could not save this recording. Please try Keep again, or record it once more.'
+        );
       }
     } catch (e) {
-      console.error(e);
+      // Never reached the server - queue locally so it syncs later.
+      console.error('Confirm failed, queueing locally', e);
+      const pending = pendingRecordingRef.current;
+      if (pending && activeClipId) {
+        try {
+          await saveAudioBlob(activeClipId, pending.blob);
+          await enqueueUpload({
+            clipId: activeClipId,
+            blob: pending.blob,
+            mimeType: pending.mimeType,
+            token: currentSpeaker.token,
+            deviceId,
+            taskId: currentTask.task_id,
+            needsInit: false,
+            transcriptEdit: transcriptEdit || undefined,
+            prompted: isPrompted
+          });
+          setNotice('Network issue - saved on this device and will upload automatically.');
+          advanceTask();
+          resetAudioState();
+        } catch (queueErr) {
+          console.error('Failed to queue recording', queueErr);
+          setRecordingError('Could not save this recording. Please check your connection and try again.');
+        }
+      } else {
+        setRecordingError('Could not save this recording. Please check your connection and try again.');
+      }
     } finally {
       setIsConfirming(false);
     }
