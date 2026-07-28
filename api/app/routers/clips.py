@@ -1,10 +1,12 @@
+import logging
 import os
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 from datetime import datetime, timedelta
-import shutil
 
+from ..config import BLOCKED_UPLOAD_MIME_PREFIXES, MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB
 from ..database import get_db
 from ..models import Clip, Task, Scenario, Speaker
 from ..schemas import (
@@ -15,6 +17,8 @@ from ..auth import get_current_speaker_with_consent, verify_device, get_current_
 from ..services.naming import generate_canonical_filename
 from ..services.storage import get_raw_path
 from ..services.audio_processor import process_clip_background
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/clips", tags=["Clips"])
 
@@ -133,45 +137,92 @@ async def init_clip(
 async def upload_clip_audio(
     clip_id: str,
     file: UploadFile = File(...),
+    speaker: Speaker = Depends(get_current_speaker_with_consent),
     x_device_id: str = Depends(verify_device),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Saves the uploaded audio clip multipart file to storage/raw/ and marks the clip status
-    as 'uploaded'.
+    Saves the uploaded audio to storage/raw/ and marks the clip 'uploaded'.
+
+    Requires the owning speaker's bearer token. The X-Device-ID header alone is
+    not authentication - it is client-supplied and never verified.
     """
     stmt = select(Clip).where(Clip.clip_id == clip_id)
     res = await db.execute(stmt)
     clip = res.scalar()
-    
+
     if not clip:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "CLIP_NOT_FOUND", "message": "Clip slot not found"}
         )
-        
-    if clip.device_id != x_device_id:
+
+    if clip.speaker_id != speaker.speaker_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail={"code": "FORBIDDEN", "message": "Device mismatch for clip upload"}
+            detail={"code": "FORBIDDEN", "message": "Not authorized to upload to this clip"}
         )
 
-    # Save raw audio file to storage/raw/
+    # Audio is immutable once kept, so a replayed request cannot swap out a
+    # clip that already passed review.
+    if clip.status in ("confirmed", "processing", "processed", "rejected"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "CLIP_LOCKED", "message": f"Clip is already {clip.status}"}
+        )
+
+    content_type = (file.content_type or "").lower()
+    if content_type.startswith(BLOCKED_UPLOAD_MIME_PREFIXES):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail={"code": "UNSUPPORTED_MEDIA_TYPE", "message": "Only audio recordings are accepted"}
+        )
+
+    # Stream to disk with a hard size cap; buffering the whole upload in memory
+    # lets one request exhaust server RAM.
+    bytes_written = 0
     try:
         os.makedirs(os.path.dirname(clip.raw_path), exist_ok=True)
         with open(clip.raw_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            while chunk := await file.read(1024 * 1024):
+                bytes_written += len(chunk)
+                if bytes_written > MAX_UPLOAD_SIZE_BYTES:
+                    buffer.close()
+                    os.remove(clip.raw_path)
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail={
+                            "code": "FILE_TOO_LARGE",
+                            "message": f"Audio exceeds the {MAX_UPLOAD_SIZE_MB}MB limit",
+                        },
+                    )
+                buffer.write(chunk)
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.exception("Failed to save upload for clip %s", clip_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"code": "FILE_SAVE_ERROR", "message": f"Could not save file: {str(e)}"}
+            detail={"code": "FILE_SAVE_ERROR", "message": "Could not save the uploaded audio"}
         )
-        
+
+    if bytes_written == 0:
+        os.remove(clip.raw_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "EMPTY_UPLOAD", "message": "Uploaded audio was empty"}
+        )
+
     # Update clip status
     clip.status = "uploaded"
     await db.commit()
-    
-    return {"message": "Upload successful", "clip_id": clip_id, "status": "uploaded"}
+
+    return {
+        "message": "Upload successful",
+        "clip_id": clip_id,
+        "status": "uploaded",
+        "bytes": bytes_written,
+    }
 
 @router.post("/{clip_id}/confirm", response_model=ClipConfirmResponse)
 async def confirm_clip(
@@ -213,6 +264,17 @@ async def confirm_clip(
             detail={"code": "CLIP_DISCARDED", "message": "Cannot confirm a discarded clip"}
         )
 
+    # Refuse to confirm a clip whose audio never arrived, otherwise a failed
+    # upload still marks the task recorded and the data point is lost.
+    if clip.status != "uploaded" or not clip.raw_path or not os.path.exists(clip.raw_path):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "AUDIO_MISSING",
+                "message": "Audio for this clip has not been uploaded yet. Please upload before confirming.",
+            },
+        )
+
     # 1. Update clip status and transcription properties
     clip.status = "confirmed"
     clip.prompted = req.prompted
@@ -226,8 +288,11 @@ async def confirm_clip(
     scen_res = await db.execute(scen_stmt)
     scenario = scen_res.scalar()
     
-    # Grab the first example phrasing as the provisional transcript
-    provisional = scenario.examples[0] if scenario and scenario.examples else ""
+    # Use the phrasing the volunteer was actually shown, not examples[0].
+    provisional = ""
+    if scenario and scenario.examples:
+        example_index = max(0, min(task.example_no - 1, len(scenario.examples) - 1))
+        provisional = scenario.examples[example_index]
     clip.transcript_provisional = provisional
 
     if req.transcript_edit:
@@ -268,6 +333,7 @@ async def confirm_clip(
         nt_scen = nt_scen_res.scalar()
         next_task_resp = TaskResponse(
             task_id=next_task.task_id,
+            domain=next_task.domain,
             intent=next_task.intent,
             scenario_id=next_task.scenario_id,
             scenario_no=next_task.scenario_no,
@@ -324,6 +390,7 @@ async def discard_clip(
         scenario = scen_res.scalar()
         task_resp = TaskResponse(
             task_id=task.task_id,
+            domain=task.domain,
             intent=task.intent,
             scenario_id=task.scenario_id,
             scenario_no=task.scenario_no,
@@ -366,6 +433,7 @@ async def discard_clip(
     
     task_resp = TaskResponse(
         task_id=task.task_id,
+        domain=task.domain,
         intent=task.intent,
         scenario_id=task.scenario_id,
         scenario_no=task.scenario_no,

@@ -1,6 +1,6 @@
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 import uuid
 import os
 import io
@@ -8,14 +8,42 @@ import io
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
 
-# Set test database environment variable before importing main/database
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_s2i_recorder.db"
-os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+# Database and storage locations come from conftest.py.
+TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 
 from app.database import Base, get_db
 from app.main import app
 from app.seed import seed_scenarios
-from app.auth import ADMIN_USERNAME, ADMIN_PASSWORD
+from app import config
+from app.config import validate_config
+
+# Read after validate_config() runs, since it fills in development defaults.
+validate_config()
+ADMIN_USERNAME = config.ADMIN_USERNAME
+ADMIN_PASSWORD = config.ADMIN_PASSWORD
+
+def _make_wav_bytes(seconds: float = 1.0, sample_rate: int = 16000) -> bytes:
+    """
+    Builds a real, decodable mono WAV.
+
+    A placeholder byte string will not do: ffmpeg cannot transcode it and the
+    QC stage rejects the clip, so confirmed-clip assertions fail.
+    """
+    import math
+    import struct
+    import wave
+
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sample_rate)
+        frames = bytearray()
+        for i in range(int(seconds * sample_rate)):
+            value = int(20000 * math.sin(2 * math.pi * 440 * i / sample_rate))
+            frames += struct.pack("<h", value)
+        w.writeframes(bytes(frames))
+    return buf.getvalue()
 
 # Set up test engine
 engine = create_async_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
@@ -61,7 +89,7 @@ app.dependency_overrides[get_db] = override_get_db
 
 @pytest.mark.asyncio
 async def test_health_check():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/api/health")
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
@@ -69,7 +97,7 @@ async def test_health_check():
 @pytest.mark.asyncio
 async def test_full_volunteer_flow():
     """Tests the full register -> onboard -> task -> record -> keep/redo flow."""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Register Device
         device_id = str(uuid.uuid4())
         device_resp = await ac.post(
@@ -88,7 +116,7 @@ async def test_full_volunteer_flow():
                 "gender": "male",
                 "l1": "Hindi",
                 "region": "Delhi",
-                "consent_version": "v1.0"
+                "consent_version": "consent-v1"
             },
             headers=headers
         )
@@ -123,7 +151,7 @@ async def test_full_volunteer_flow():
         # 5. Initialize Clip
         clip_init_resp = await ac.post(
             "/api/clips/init",
-            json={"task_id": first_task["task_id"], "mime_type": "audio/webm;codecs=opus"},
+            json={"task_id": first_task["task_id"], "mime_type": "audio/wav"},
             headers=auth_headers
         )
         assert clip_init_resp.status_code == 201
@@ -132,11 +160,11 @@ async def test_full_volunteer_flow():
         assert clip_data["upload_url"] == f"/api/clips/upload?clip_id={clip_id}"
 
         # 6. Upload Audio
-        dummy_audio = io.BytesIO(b"RIFF....WAVEfmt ....data....")
+        dummy_audio = io.BytesIO(_make_wav_bytes())
         upload_resp = await ac.post(
             f"/api/clips/upload?clip_id={clip_id}",
-            files={"file": ("test.webm", dummy_audio, "audio/webm;codecs=opus")},
-            headers=headers
+            files={"file": ("test.wav", dummy_audio, "audio/wav")},
+            headers=auth_headers
         )
         assert upload_resp.status_code == 200
 
@@ -153,18 +181,18 @@ async def test_full_volunteer_flow():
         # 8. Re-initialize Clip (Same task)
         clip_init_resp2 = await ac.post(
             "/api/clips/init",
-            json={"task_id": first_task["task_id"], "mime_type": "audio/webm;codecs=opus"},
+            json={"task_id": first_task["task_id"], "mime_type": "audio/wav"},
             headers=auth_headers
         )
         assert clip_init_resp2.status_code == 201
         clip_id2 = clip_init_resp2.json()["clip_id"]
 
         # Upload again
-        dummy_audio2 = io.BytesIO(b"RIFF....WAVEfmt ....data....")
+        dummy_audio2 = io.BytesIO(_make_wav_bytes())
         await ac.post(
             f"/api/clips/upload?clip_id={clip_id2}",
-            files={"file": ("test.webm", dummy_audio2, "audio/webm;codecs=opus")},
-            headers=headers
+            files={"file": ("test.wav", dummy_audio2, "audio/wav")},
+            headers=auth_headers
         )
 
         # 9. Confirm Clip (Keep)
@@ -185,7 +213,7 @@ async def test_full_volunteer_flow():
 @pytest.mark.asyncio
 async def test_admin_operations():
     """Tests admin login, stats, review queue, coverage, and withdrawal/export."""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Admin Login
         login_resp = await ac.post(
             "/api/admin/login",
@@ -205,7 +233,7 @@ async def test_admin_operations():
         await ac.post("/api/devices", json={"device_id": device_id})
         spk_resp = await ac.post(
             "/api/speakers",
-            json={"age": 42, "gender": "female", "l1": "Hindi", "region": "UP", "consent_version": "v1.0"},
+            json={"age": 42, "gender": "female", "l1": "Hindi", "region": "UP", "consent_version": "consent-v1"},
             headers={"X-Device-ID": device_id}
         )
         token = spk_resp.json()["token"]
@@ -220,8 +248,8 @@ async def test_admin_operations():
         
         await ac.post(
             f"/api/clips/upload?clip_id={clip_id}",
-            files={"file": ("t.webm", io.BytesIO(b"RIFFfmt "), "audio/webm")},
-            headers={"X-Device-ID": device_id}
+            files={"file": ("t.wav", io.BytesIO(_make_wav_bytes()), "audio/wav")},
+            headers=auth_headers
         )
         await ac.post(f"/api/clips/{clip_id}/confirm", json={}, headers=auth_headers)
 

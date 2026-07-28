@@ -58,11 +58,23 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
   // Admin Task Assignment State (uses server-side storage)
   const [assignedPrompts, setAssignedPrompts] = useState<Record<string, string>>({});
 
+  // Surfaced failure message for admin actions.
+  const [actionError, setActionError] = useState<string>('');
+
   const headers = { 'Authorization': `Bearer ${adminToken}` };
 
   const handleUnauthorized = () => {
     console.error('Admin token expired or invalid. Logging out.');
     onLogout();
+  };
+
+  /** Extracts a human-readable message from a failed API response. */
+  const describeFailure = async (res: Response, fallback: string): Promise<string> => {
+    const data = await res.json().catch(() => null);
+    const detail = data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (detail?.message) return detail.message;
+    return `${fallback} (HTTP ${res.status})`;
   };
 
   // Sync activeTab when navigating via navbar routes (e.g. /admin/recordings → /admin/speakers)
@@ -96,8 +108,10 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
       const res = await fetch(`${API_BASE}/admin/stats`, { headers });
       if (res.ok) setStats(await res.json());
       else if (res.status === 401) handleUnauthorized();
+      else setActionError(await describeFailure(res, 'Could not load statistics'));
     } catch (e) {
       console.error('Failed to fetch stats:', e);
+      setActionError('Could not reach the server. Check that the API is running.');
     }
   };
 
@@ -123,8 +137,10 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
         const data = await res.json();
         setClips(data.clips);
       } else if (res.status === 401) handleUnauthorized();
+      else setActionError(await describeFailure(res, 'Could not load recordings'));
     } catch (e) {
       console.error('Failed to fetch clips:', e);
+      setActionError('Could not reach the server. Check that the API is running.');
     }
   };
 
@@ -146,6 +162,7 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
   };
 
   const handleReviewAction = async (clipId: string, action: 'accept' | 'reject') => {
+    setActionError('');
     try {
       const res = await fetch(`${API_BASE}/admin/clips/${clipId}/review`, {
         method: 'POST',
@@ -160,13 +177,21 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
         fetchStats();
       } else if (res.status === 401) {
         handleUnauthorized();
+      } else {
+        setActionError(await describeFailure(res, `Could not ${action} this clip`));
       }
     } catch (e) {
       console.error(`Failed to ${action} clip:`, e);
+      setActionError(`Could not ${action} this clip - the server is unreachable.`);
     }
   };
 
   const handleSaveTranscript = async (clipId: string) => {
+    setActionError('');
+    if (!editedTranscriptText.trim()) {
+      setActionError('Transcript cannot be empty.');
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE}/admin/clips/${clipId}/review`, {
         method: 'POST',
@@ -181,9 +206,12 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
         fetchClips();
       } else if (res.status === 401) {
         handleUnauthorized();
+      } else {
+        setActionError(await describeFailure(res, 'Could not save the transcript'));
       }
     } catch (e) {
       console.error('Failed to save transcript:', e);
+      setActionError('Could not save the transcript - the server is unreachable.');
     }
   };
 
@@ -239,19 +267,34 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
     if (!confirm(`Are you sure you want to ${action} ${selectedClipIds.length} selected clips?`)) return;
     
     setBatchLoading(true);
+    setActionError('');
+    let failed = 0;
     try {
       for (const clipId of selectedClipIds) {
-        await fetch(`${API_BASE}/admin/clips/${clipId}/review`, {
-          method: 'POST',
-          headers: { ...headers, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action })
-        }).catch(() => undefined);
+        try {
+          const res = await fetch(`${API_BASE}/admin/clips/${clipId}/review`, {
+            method: 'POST',
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action })
+          });
+          if (res.status === 401) {
+            handleUnauthorized();
+            return;
+          }
+          if (!res.ok) failed += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      if (failed > 0) {
+        setActionError(
+          `${failed} of ${selectedClipIds.length} clips could not be ${action}ed. The rest were saved.`
+        );
       }
       setSelectedClipIds([]);
       await fetchClips();
       await fetchStats();
-    } catch (e) {
-      console.error('Batch review error:', e);
     } finally {
       setBatchLoading(false);
     }
@@ -407,6 +450,31 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
             </button>
           </div>
         </div>
+
+        {/* Failure banner */}
+        {actionError && (
+          <div
+            className="card glass-card"
+            role="alert"
+            aria-live="assertive"
+            style={{
+              borderLeft: '4px solid var(--danger)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px'
+            }}
+          >
+            <span style={{ color: 'var(--danger)' }}>{actionError}</span>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setActionError('')}
+              aria-label="Dismiss error"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="card admin-tabs glass-card">

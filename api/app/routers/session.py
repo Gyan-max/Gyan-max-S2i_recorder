@@ -55,6 +55,7 @@ async def get_next_session_batch(
         task_responses.append(
             TaskResponse(
                 task_id=task.task_id,
+                domain=task.domain,
                 intent=task.intent,
                 scenario_id=task.scenario_id,
                 scenario_no=task.scenario_no,

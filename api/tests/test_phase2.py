@@ -2,8 +2,10 @@
 Tests for Phase 2: Speaker Identity + Device ID + Consent
 """
 
+import uuid
+
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -34,7 +36,7 @@ async def client(db_session):
         yield db_session
     
     app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
 
@@ -44,7 +46,7 @@ class TestDeviceRegistration:
     
     async def test_register_new_device(self, client: AsyncClient):
         """Test registering a new device."""
-        device_id = "test-device-123"
+        device_id = str(uuid.uuid4())
         response = await client.post("/api/devices", json={
             "device_id": device_id,
             "ua_class": "Test Browser"
@@ -57,7 +59,7 @@ class TestDeviceRegistration:
     
     async def test_register_existing_device(self, client: AsyncClient):
         """Test registering the same device twice (should be idempotent)."""
-        device_id = "test-device-456"
+        device_id = str(uuid.uuid4())
         
         # First registration
         response1 = await client.post("/api/devices", json={
@@ -96,7 +98,7 @@ class TestSpeakerCreation:
     
     async def test_create_speaker_with_consent(self, client: AsyncClient):
         """Test creating a speaker with valid consent."""
-        device_id = "test-device-789"
+        device_id = str(uuid.uuid4())
         await self.setup_device(client, device_id)
         
         response = await client.post("/api/speakers", 
@@ -118,7 +120,7 @@ class TestSpeakerCreation:
     
     async def test_invalid_consent_version(self, client: AsyncClient):
         """Test creating speaker with invalid consent version."""
-        device_id = "test-device-999"
+        device_id = str(uuid.uuid4())
         await self.setup_device(client, device_id)
         
         response = await client.post("/api/speakers",
@@ -153,7 +155,7 @@ class TestSpeakerCreation:
     
     async def test_speaker_validation(self, client: AsyncClient):
         """Test speaker field validation."""
-        device_id = "test-device-validation"
+        device_id = str(uuid.uuid4())
         await self.setup_device(client, device_id)
         
         # Test invalid age
@@ -209,7 +211,7 @@ class TestSharedDeviceSupport:
     
     async def test_multiple_speakers_same_device(self, client: AsyncClient):
         """Test multiple speakers on the same device."""
-        device_id = "shared-device-001"
+        device_id = str(uuid.uuid4())
         await self.setup_device(client, device_id)
         
         # Create two speakers
@@ -324,7 +326,7 @@ class TestPhase2Integration:
     
     async def test_complete_phase2_flow(self, client: AsyncClient):
         """Test the complete Phase 2 flow: device → speaker → consent."""
-        device_id = "integration-test-device"
+        device_id = str(uuid.uuid4())
         
         # Step 1: Register device
         device_response = await client.post("/api/devices", json={
@@ -349,7 +351,10 @@ class TestPhase2Integration:
         speaker_id = speaker_data["speaker_id"]
         
         # Step 3: Verify consent was recorded
-        consent_response = await client.get(f"/api/speakers/{speaker_id}/consent")
+        consent_response = await client.get(
+            f"/api/speakers/{speaker_id}/consent",
+            headers={"Authorization": f"Bearer {speaker_data['token']}"}
+        )
         assert consent_response.status_code == 200
         
         consent_data = consent_response.json()
