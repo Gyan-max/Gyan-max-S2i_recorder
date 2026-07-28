@@ -20,8 +20,15 @@ if DATABASE_URL.startswith("sqlite"):
     def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA busy_timeout=5000")
+        # Uploads can hold the write lock for a moment on slow disks; 5s was
+        # tight enough to surface "database is locked" under concurrent keeps.
+        cursor.execute("PRAGMA busy_timeout=30000")
         cursor.execute("PRAGMA synchronous=NORMAL")
+        # SQLite ignores foreign keys unless asked, per connection. Without
+        # this the schema's five ON DELETE CASCADE rules are silently inert,
+        # so deleting a speaker would leave their clips and tasks behind -
+        # exactly the rows a withdrawal request is supposed to erase.
+        cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
 
 AsyncSessionLocal = async_sessionmaker(

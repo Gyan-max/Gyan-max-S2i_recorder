@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Globe, Mic, BarChart3, Users, LogOut, Menu, X, Sun, Moon } from 'lucide-react';
+import { Globe, Mic, BarChart3, Users, LogOut, Menu, X, Sun, Moon, ListMusic } from 'lucide-react';
 import { useState } from 'react';
 
 interface NavbarProps {
@@ -37,12 +37,19 @@ export default function Navbar({ isAdmin, adminToken, currentSpeaker, onLogout, 
                 <Mic size={18} />
                 <span>Record</span>
               </Link>
-              <Link 
-                to="/progress" 
+              <Link
+                to="/progress"
                 className={`nav-link ${isActive('/progress') ? 'active' : ''}`}
               >
                 <BarChart3 size={18} />
                 <span>Progress</span>
+              </Link>
+              <Link
+                to="/my-recordings"
+                className={`nav-link ${isActive('/my-recordings') ? 'active' : ''}`}
+              >
+                <ListMusic size={18} />
+                <span>My recordings</span>
               </Link>
               {currentSpeaker && (
                 <span className="nav-link user-badge" style={{ cursor: 'default' }}>
@@ -117,6 +124,10 @@ export default function Navbar({ isAdmin, adminToken, currentSpeaker, onLogout, 
               <Link to="/progress" className={`mobile-link ${isActive('/progress') ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)}>
                 <BarChart3 size={18} />
                 <span>Progress</span>
+              </Link>
+              <Link to="/my-recordings" className={`mobile-link ${isActive('/my-recordings') ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)}>
+                <ListMusic size={18} />
+                <span>My recordings</span>
               </Link>
               {currentSpeaker && (
                 <span className="mobile-link" style={{ opacity: 0.7 }}>

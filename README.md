@@ -157,25 +157,42 @@ web/
 
 ## 🚀 Production Deployment
 
-### Using Docker
+The API requires **ffmpeg** to transcode confirmed recordings. With
+`APP_ENV=production` it refuses to start without it, rather than accepting
+clips it can never process. The Docker image installs ffmpeg for you.
+
+### Using Docker (recommended)
 ```bash
-# Build and run with Docker
-docker build -t s2i-recorder .
-docker run -p 8000:8000 -v ./data:/app/data s2i-recorder
+# Configure environment first - the API will not start without real secrets
+cp .env.example .env
+# Set APP_ENV=production, JWT_SECRET_KEY, ADMIN_PASSWORD and CORS_ORIGINS
+
+docker compose up --build
 ```
 
-### Manual Deployment  
+### Manual Deployment
 ```bash
-# Build for production
-./build.sh
+# Install ffmpeg (required by the audio pipeline)
+sudo apt-get install ffmpeg
 
 # Configure environment
 cp .env.example .env
 # Edit .env with production settings
 
-# Start production server
-./start-production.sh
+# Build the frontend
+cd web && npm install && npm run build && cd ..
+
+# Serve the API (put nginx or a similar reverse proxy in front for TLS)
+cd api
+.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+### Hosted (Render + Vercel)
+`render.yaml` deploys the API as a Docker service with a persistent disk, and
+`vercel.json` builds the frontend from `web/`. After the first deploy, set
+`CORS_ORIGINS` on Render to your Vercel URL, and `VITE_API_URL` on Vercel to
+your Render URL — the two must point at each other or the browser will be
+blocked by CORS.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for comprehensive production setup instructions including nginx configuration, systemd services, and security hardening.
 

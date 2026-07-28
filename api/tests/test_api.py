@@ -295,3 +295,187 @@ async def test_admin_operations():
         # Verify stats after withdrawal
         stats_resp3 = await ac.get("/api/admin/stats", headers=admin_headers)
         assert stats_resp3.json()["total_speakers"] == 0  # soft-deleted/withdrawn excluded
+
+
+async def _record_one_clip(ac, name: str = "Deleter"):
+    """Registers a speaker and takes one confirmed recording. Returns context."""
+    device_id = str(uuid.uuid4())
+    await ac.post("/api/devices", json={"device_id": device_id})
+    spk = await ac.post(
+        "/api/speakers",
+        json={"name": name, "age": 30, "gender": "female", "l1": "Hindi",
+              "region": "Delhi", "consent_version": "consent-v1"},
+        headers={"X-Device-ID": device_id},
+    )
+    token = spk.json()["token"]
+    headers = {"X-Device-ID": device_id, "Authorization": f"Bearer {token}"}
+
+    batch = await ac.get("/api/session/next?domain=BNK", headers=headers)
+    task = batch.json()["batch"]["tasks"][0]
+
+    init = await ac.post("/api/clips/init", json={"task_id": task["task_id"]}, headers=headers)
+    clip_id = init.json()["clip_id"]
+    await ac.post(
+        f"/api/clips/upload?clip_id={clip_id}",
+        files={"file": ("t.wav", io.BytesIO(_make_wav_bytes()), "audio/wav")},
+        headers=headers,
+    )
+    await ac.post(f"/api/clips/{clip_id}/confirm", json={}, headers=headers)
+    return {"headers": headers, "clip_id": clip_id, "task_id": task["task_id"]}
+
+
+@pytest.mark.asyncio
+async def test_speaker_can_delete_own_recording():
+    """
+    A kept recording is retained until someone deletes it, and deleting it
+    frees the prompt to be recorded again.
+    """
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        ctx = await _record_one_clip(ac)
+
+        # It is listed before deletion.
+        mine = await ac.get("/api/clips/my", headers=ctx["headers"])
+        assert len(mine.json()["clips"]) == 1
+
+        # The audio really is on disk, so we can prove deletion removes it.
+        from sqlalchemy import select
+        from app.models import Clip, Task
+        async with TestingSessionLocal() as s:
+            clip = (await s.execute(select(Clip).where(Clip.clip_id == ctx["clip_id"]))).scalar()
+            raw_path = clip.raw_path
+        assert os.path.exists(raw_path)
+
+        resp = await ac.delete(f"/api/clips/{ctx['clip_id']}", headers=ctx["headers"])
+        assert resp.status_code == 200
+        assert resp.json()["deleted"] is True
+
+        # Gone from the speaker's list, from the database, and from disk.
+        mine_after = await ac.get("/api/clips/my", headers=ctx["headers"])
+        assert mine_after.json()["clips"] == []
+        assert not os.path.exists(raw_path)
+
+        async with TestingSessionLocal() as s:
+            assert (await s.execute(select(Clip).where(Clip.clip_id == ctx["clip_id"]))).scalar() is None
+            # The prompt is available again rather than stuck as recorded.
+            task = (await s.execute(select(Task).where(Task.task_id == ctx["task_id"]))).scalar()
+            assert task.status == "pending"
+
+        # Deleting again is a no-op, not an error.
+        again = await ac.delete(f"/api/clips/{ctx['clip_id']}", headers=ctx["headers"])
+        assert again.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_speaker_cannot_delete_another_speakers_recording():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        victim = await _record_one_clip(ac, name="Victim")
+        attacker = await _record_one_clip(ac, name="Attacker")
+
+        resp = await ac.delete(f"/api/clips/{victim['clip_id']}", headers=attacker["headers"])
+        assert resp.status_code == 403
+
+        # The victim's recording survives.
+        mine = await ac.get("/api/clips/my", headers=victim["headers"])
+        assert len(mine.json()["clips"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_admin_can_delete_a_single_recording():
+    """Admin deletion removes one clip without touching the speaker profile."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        ctx = await _record_one_clip(ac, name="Admin Target")
+
+        login = await ac.post(
+            "/api/admin/login",
+            json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+        )
+        admin_headers = {"Authorization": f"Bearer {login.json()['token']}"}
+
+        before = await ac.get("/api/admin/clips", headers=admin_headers)
+        assert len(before.json()["clips"]) == 1
+
+        resp = await ac.delete(f"/api/admin/clips/{ctx['clip_id']}", headers=admin_headers)
+        assert resp.status_code == 200
+
+        after = await ac.get("/api/admin/clips", headers=admin_headers)
+        assert after.json()["clips"] == []
+
+        # The speaker still exists - this is not a withdrawal.
+        speakers = await ac.get("/api/admin/speakers/detailed", headers=admin_headers)
+        assert len(speakers.json()["speakers"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_delete_requires_authentication():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        ctx = await _record_one_clip(ac, name="Unauthed")
+        assert (await ac.delete(f"/api/clips/{ctx['clip_id']}")).status_code in (401, 403)
+        assert (await ac.delete(f"/api/admin/clips/{ctx['clip_id']}")).status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_double_confirm_counts_scenario_use_once():
+    """
+    A double-tapped Keep must not inflate scenario.use_count.
+
+    SELECT ... FOR UPDATE does nothing on SQLite, so the transition is guarded
+    by a conditional UPDATE instead. Without it both requests read 'uploaded',
+    both proceed, and the scenario is credited twice - skewing coverage and the
+    assignment balancing that reads use_count.
+    """
+    import asyncio
+    from sqlalchemy import select
+    from app.models import Clip, Scenario, Task
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        device_id = str(uuid.uuid4())
+        await ac.post("/api/devices", json={"device_id": device_id})
+        spk = await ac.post(
+            "/api/speakers",
+            json={"name": "Racer", "age": 30, "gender": "female", "l1": "Hindi",
+                  "region": "Delhi", "consent_version": "consent-v1"},
+            headers={"X-Device-ID": device_id},
+        )
+        headers = {"X-Device-ID": device_id, "Authorization": f"Bearer {spk.json()['token']}"}
+
+        batch = await ac.get("/api/session/next?domain=BNK", headers=headers)
+        task_id = batch.json()["batch"]["tasks"][0]["task_id"]
+        init = await ac.post("/api/clips/init", json={"task_id": task_id}, headers=headers)
+        clip_id = init.json()["clip_id"]
+        await ac.post(
+            f"/api/clips/upload?clip_id={clip_id}",
+            files={"file": ("t.wav", io.BytesIO(_make_wav_bytes()), "audio/wav")},
+            headers=headers,
+        )
+
+        async with TestingSessionLocal() as s:
+            task = (await s.execute(select(Task).where(Task.task_id == task_id))).scalar()
+            before = (await s.execute(
+                select(Scenario).where(Scenario.scenario_id == task.scenario_id))).scalar().use_count
+
+        # Two Keeps landing at the same instant.
+        r1, r2 = await asyncio.gather(
+            ac.post(f"/api/clips/{clip_id}/confirm", json={}, headers=headers),
+            ac.post(f"/api/clips/{clip_id}/confirm", json={}, headers=headers),
+        )
+
+        # Neither request errors; the loser gets the idempotent answer.
+        assert r1.status_code == 200 and r2.status_code == 200
+        assert {r1.json()["status"], r2.json()["status"]} <= {"confirmed", "processing", "processed"}
+
+        async with TestingSessionLocal() as s:
+            after = (await s.execute(
+                select(Scenario).where(Scenario.scenario_id == task.scenario_id))).scalar().use_count
+            clip = (await s.execute(select(Clip).where(Clip.clip_id == clip_id))).scalar()
+
+        assert after == before + 1, f"use_count moved {before} -> {after}; expected exactly one increment"
+        assert clip.status in ("confirmed", "processing", "processed")
+
+
+@pytest.mark.asyncio
+async def test_security_headers_present():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        r = await ac.get("/api/health")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "DENY"
+    assert r.headers["referrer-policy"] == "no-referrer"

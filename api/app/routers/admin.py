@@ -24,6 +24,7 @@ from ..auth import (
     check_login_rate_limit, record_failed_login, clear_login_attempts,
 )
 from ..services.storage import get_export_path
+from ..services.clip_deletion import delete_clip_completely
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -928,6 +929,39 @@ async def get_speakers_detailed(
         })
     
     return {"speakers": speakers_list}
+
+@router.delete("/clips/{clip_id}")
+async def delete_clip_as_admin(
+    clip_id: str,
+    admin: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Permanently deletes a single recording, whoever it belongs to.
+
+    Recordings are retained indefinitely until explicitly removed here or by
+    the speaker themselves. Unlike speaker withdrawal this touches one clip and
+    leaves the speaker's profile and other recordings intact.
+    """
+    stmt = select(Clip).where(Clip.clip_id == clip_id)
+    res = await db.execute(stmt)
+    clip = res.scalar()
+
+    if not clip:
+        # Idempotent: a second delete of the same clip is not an error.
+        return {"clip_id": clip_id, "deleted": True}
+
+    try:
+        await delete_clip_completely(db, clip)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "DELETE_FAILED", "message": "The recording could not be deleted"}
+        )
+
+    return {"clip_id": clip_id, "deleted": True}
 
 @router.get("/clips/{clip_id}/audio")
 async def get_clip_audio(

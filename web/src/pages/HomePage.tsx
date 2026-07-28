@@ -28,8 +28,21 @@ export default function HomePage({
   const searchParams = new URLSearchParams(location.search);
   const initialDomain = searchParams.get('domain') || 'BNK';
 
-  const [showOnboarding, setShowOnboarding] = useState(!currentSpeaker);
-  const [showSpeakerConfirm, setShowSpeakerConfirm] = useState(!!currentSpeaker);
+  // Read the saved session synchronously rather than from the currentSpeaker
+  // prop. AppRouter restores that prop in a useEffect, so it is still null
+  // during this first render - initialising from it left returning volunteers
+  // stuck on the onboarding form, where re-registering created a duplicate
+  // speaker and orphaned every recording made under the previous profile.
+  const hasSavedSpeaker = () => {
+    try {
+      return Boolean(localStorage.getItem('active_speaker'));
+    } catch {
+      return false;
+    }
+  };
+
+  const [showOnboarding, setShowOnboarding] = useState(() => !hasSavedSpeaker());
+  const [showSpeakerConfirm, setShowSpeakerConfirm] = useState(() => hasSavedSpeaker());
   const [showSpeakerRoster, setShowSpeakerRoster] = useState(false);
 
   // Domain & Session State
@@ -969,6 +982,20 @@ export default function HomePage({
                 Continue to recording
               </button>
             </form>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // A saved session exists but AppRouter has not finished restoring it yet.
+  // Hold here instead of falling through to the recorder with no speaker.
+  if (showSpeakerConfirm && !currentSpeaker) {
+    return (
+      <main className="page-container onboarding-page">
+        <div className="content-wrapper onboarding-wrapper">
+          <div className="card card-center" role="status">
+            <p>Restoring your profile…</p>
           </div>
         </div>
       </main>

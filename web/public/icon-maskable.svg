@@ -1,0 +1,13 @@
+<!-- Maskable variant: artwork sits inside the safe zone (center 80%) so
+     Android can crop it to any shape without clipping the microphone. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hinglish S2I">
+  <rect width="512" height="512" fill="#4f46e5"/>
+  <g transform="translate(256 256) scale(0.72) translate(-256 -256)">
+    <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round">
+      <rect x="212" y="128" width="88" height="152" rx="44" fill="#ffffff" stroke="none"/>
+      <path d="M164 244a92 92 0 0 0 184 0"/>
+      <path d="M256 336v48"/>
+      <path d="M212 384h88"/>
+    </g>
+  </g>
+</svg>

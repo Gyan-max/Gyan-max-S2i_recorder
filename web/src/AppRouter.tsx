@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import ProgressPage from './pages/ProgressPage';
+import MyRecordingsPage from './pages/MyRecordingsPage';
 import AdminLogin from './pages/AdminLogin';
 import AdminPanel from './pages/AdminPanel';
 import { SpeakerResponse, SpeakerRosterItem } from './types';
@@ -133,16 +134,20 @@ export default function AppRouter() {
               />
             } 
           />
-          <Route 
-            path="/progress" 
+          <Route
+            path="/progress"
             element={
               <ProgressPage
                 currentSpeaker={currentSpeaker}
                 deviceId={deviceId}
               />
-            } 
+            }
           />
-          
+          <Route
+            path="/my-recordings"
+            element={<MyRecordingsPage currentSpeaker={currentSpeaker} />}
+          />
+
           {/* Admin Routes */}
           <Route 
             path="/admin" 

@@ -1,7 +1,9 @@
 import os
+import shutil
 import subprocess
 import logging
 from sqlalchemy import select
+from .. import config
 from ..database import AsyncSessionLocal
 from ..models import Clip, Task
 from .storage import get_raw_path, get_processed_path
@@ -10,19 +12,40 @@ from .asr import get_asr_provider
 
 logger = logging.getLogger(__name__)
 
+
+class TranscodeUnavailableError(RuntimeError):
+    """
+    Raised when transcoding could not even be attempted - ffmpeg is missing or
+    not executable.
+
+    This is deliberately distinct from "ffmpeg ran and rejected the file".
+    A missing binary is an operator problem, not evidence that the volunteer's
+    audio is bad, so it must never mark a clip 'rejected'.
+    """
+
+
+def ffmpeg_available() -> bool:
+    """Reports whether the configured ffmpeg binary can be found on this host."""
+    return shutil.which(config.FFMPEG_PATH) is not None
+
+
 def transcode_audio(input_path: str, output_path: str) -> bool:
     """
     Transcodes raw audio (webm/mp4) to 16kHz mono WAV using ffmpeg.
     Trims excess silence but leaves ~150ms padding at each end.
+
+    Returns False when ffmpeg ran but could not decode the input (a genuinely
+    unusable recording). Raises TranscodeUnavailableError when ffmpeg itself is
+    unavailable, so the caller can keep the clip for a later retry.
     """
     if not os.path.exists(input_path):
         logger.error(f"Raw input file not found: {input_path}")
         return False
-        
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    
+
     cmd = [
-        "ffmpeg", "-y", "-i", input_path,
+        config.FFMPEG_PATH, "-y", "-i", input_path,
         "-ar", "16000",
         "-ac", "1",
         "-c:a", "pcm_s16le",
@@ -36,11 +59,21 @@ def transcode_audio(input_path: str, output_path: str) -> bool:
     
     try:
         # Run subprocess with timeout to avoid hanging
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=30)
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=30)
         return True
-    except (subprocess.SubprocessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
-        logger.error(f"FFmpeg transcoding failed for {input_path}: {e}")
-        # In a real environment, if ffmpeg is missing we could log setup instructions.
+    except FileNotFoundError as e:
+        # The binary itself is missing. Surface this instead of blaming the audio.
+        raise TranscodeUnavailableError(
+            f"ffmpeg not found at '{config.FFMPEG_PATH}'. Install ffmpeg or set FFMPEG_PATH."
+        ) from e
+    except subprocess.TimeoutExpired as e:
+        # A hung encode is an infrastructure symptom too, not a verdict on the file.
+        raise TranscodeUnavailableError(
+            f"ffmpeg timed out after 30s on {input_path}"
+        ) from e
+    except subprocess.SubprocessError as e:
+        # ffmpeg ran and refused the input: the recording really is unusable.
+        logger.error(f"FFmpeg could not decode {input_path}: {e}")
         return False
 
 async def process_clip_background(clip_id: str):
@@ -85,10 +118,22 @@ async def process_clip_background(clip_id: str):
             return
             
         wav_path = get_processed_path(clip.filename)
-        
+
         # 1. Transcode raw file to WAV
-        success = transcode_audio(raw_path, wav_path)
-        
+        try:
+            success = transcode_audio(raw_path, wav_path)
+        except TranscodeUnavailableError as e:
+            # Processing is broken on this host, but the recording is fine and
+            # already on disk. Roll back to 'confirmed' so a later run (or a
+            # reinstalled ffmpeg) can still pick it up. Rejecting here would
+            # discard good corpus data for an operator mistake.
+            clip.status = "confirmed"
+            await db.commit()
+            logger.error(
+                "Clip %s left unprocessed and awaiting retry: %s", clip_id, e
+            )
+            return
+
         if success:
             clip.wav_path = wav_path
             

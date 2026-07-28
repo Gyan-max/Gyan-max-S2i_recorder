@@ -66,29 +66,41 @@ npm run dev
 
 ### Environment Configuration
 
-Create `.env` file with production settings:
+Copy `.env.example` to `.env` and set the production values. The full list of
+supported settings lives in `.env.example`; the ones that matter for a
+production deploy are:
 
 ```bash
-# Database
-DATABASE_URL=sqlite+aiosqlite:///./data/s2i_recorder.db
+# Turns on fail-hard validation. Without this the API silently falls back to
+# development defaults (ephemeral JWT key, 'admin123' password).
+APP_ENV=production
 
-# Security - Generate secure keys!
-SECRET_KEY=$(openssl rand -hex 32)
+# Database (four slashes for an absolute SQLite path)
+DATABASE_URL=sqlite+aiosqlite:////app/data/s2i_recorder.db
+
+# Security - generate real secrets. The variable is JWT_SECRET_KEY, not
+# SECRET_KEY; a misspelling here is ignored and the API falls back to an
+# ephemeral key that logs every admin out on restart.
+JWT_SECRET_KEY=$(openssl rand -hex 32)
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=$(openssl rand -base64 32)
 
-# CORS - Add your domain
+# CORS - explicit origins only. Credentials are allowed, so a wildcard would
+# let any site drive the API as a logged-in admin.
 CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 
 # Storage
-STORAGE_TYPE=local
 STORAGE_BASE_PATH=/app/storage
 
 # Server
-API_HOST=0.0.0.0
-API_PORT=8000
 LOG_LEVEL=INFO
 ```
+
+> **ffmpeg is required.** The API transcodes every confirmed clip to 16 kHz
+> mono WAV. With `APP_ENV=production` the service refuses to start if ffmpeg is
+> missing, rather than accepting recordings it can never process. The provided
+> `Dockerfile` installs it; if you deploy without Docker, install it yourself
+> (`apt-get install ffmpeg`) or set `FFMPEG_PATH`.
 
 ### Docker Deployment
 

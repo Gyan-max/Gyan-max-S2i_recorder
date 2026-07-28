@@ -1,31 +1,48 @@
+# Render deployment for the S2I Recorder API.
+#
+# Docker, not Render's native python runtime: the audio pipeline shells out to
+# ffmpeg, which the python runtime does not provide. The Dockerfile installs it.
 services:
   - type: web
     name: s2i-api
-    env: python
-    buildCommand: pip install -r api/requirements.txt
-    startCommand: >
-      mkdir -p /data/storage &&
-      uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    workingDir: api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
     envVars:
-      - key: DATABASE_URL
-        value: sqlite+aiosqlite:////data/s2i_recorder.db
-      - key: SECRET_KEY
+      # Turns on the fail-hard config validation in api/app/config.py. Without
+      # this the service silently runs with development fallbacks.
+      - key: APP_ENV
+        value: production
+
+      # Must match the name config.py actually reads. The previous SECRET_KEY
+      # spelling was ignored, so the app fell back to an ephemeral per-process
+      # key and every redeploy logged all admins out.
+      - key: JWT_SECRET_KEY
         generateValue: true
+
       - key: ADMIN_USERNAME
         value: admin
       - key: ADMIN_PASSWORD
         generateValue: true
+
+      # sync: false leaves this unset in the blueprint so it must be filled in
+      # from the dashboard with the real frontend origin, e.g.
+      # https://your-app.vercel.app - a stale placeholder here silently breaks
+      # every browser request with a CORS error.
       - key: CORS_ORIGINS
-        value: https://your-frontend.vercel.app
-      - key: STORAGE_TYPE
-        value: local
+        sync: false
+
+      # Four slashes: sqlite+aiosqlite:/// + the absolute /data path.
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:////data/s2i_recorder.db
       - key: STORAGE_BASE_PATH
         value: /data/storage
-      - key: PYTHON_VERSION
-        value: "3.11"
       - key: LOG_LEVEL
         value: INFO
+
+    # Persistent disk: without it the SQLite database and every uploaded clip
+    # are wiped on each deploy.
     disk:
       name: data
       mountPath: /data

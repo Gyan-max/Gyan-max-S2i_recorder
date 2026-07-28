@@ -119,7 +119,10 @@ dist
 
 # Gatsby files
 .cache/
-public
+# Anchored to the repo root on purpose. A bare "public" also matched
+# web/public/, which silently kept the PWA manifest and service worker out of
+# git even though index.html requests them.
+/public
 
 # Storybook build outputs
 .out

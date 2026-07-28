@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { BarChart3, CheckCircle, Award, RefreshCw, Sparkles, Layers, ShieldCheck, Mic } from 'lucide-react';
 import { API_BASE } from '../config';
 import { getUploadQueue, dequeueUpload } from '../db';
@@ -16,11 +16,14 @@ export default function ProgressPage({ currentSpeaker, deviceId }: ProgressPageP
   const [loading, setLoading] = useState(false);
   const [queueCount, setQueueCount] = useState<number>(0);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  // Saved recordings across every domain, not just the one selected below.
+  const [savedRecordings, setSavedRecordings] = useState<number | null>(null);
 
   useEffect(() => {
     if (currentSpeaker) {
       fetchProgress();
       checkOfflineQueue();
+      fetchSavedRecordings();
     }
   }, [selectedDomain, currentSpeaker]);
 
@@ -73,6 +76,28 @@ export default function ProgressPage({ currentSpeaker, deviceId }: ProgressPageP
       console.error(e);
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  /**
+   * The per-domain progress endpoint only describes the selected batch, so it
+   * cannot answer "how many recordings have I made overall". /clips/my is the
+   * authoritative list of everything the speaker has kept.
+   */
+  const fetchSavedRecordings = async () => {
+    if (!currentSpeaker) return;
+    try {
+      const res = await fetch(`${API_BASE}/clips/my`, {
+        headers: { 'Authorization': `Bearer ${currentSpeaker.token}` }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const kept = (data.clips ?? []).filter((c: any) =>
+        ['confirmed', 'processing', 'processed'].includes(c.status)
+      );
+      setSavedRecordings(kept.length);
+    } catch (e) {
+      console.error('Failed to load saved recording count', e);
     }
   };
 
@@ -162,7 +187,15 @@ export default function ProgressPage({ currentSpeaker, deviceId }: ProgressPageP
         {/* Global Stats Summary & Achievements */}
         <div className="progress-summary-bar glass-card card">
           <div className="summary-metric">
-            <span className="metric-label">Completed Prompts</span>
+            <span className="metric-label">Recordings Saved</span>
+            <span className="metric-value">
+              {savedRecordings === null ? '—' : savedRecordings}
+            </span>
+            <Link to="/my-recordings" className="metric-link">Listen to them →</Link>
+          </div>
+
+          <div className="summary-metric">
+            <span className="metric-label">Completed Prompts <span className="metric-scope">({selectedDomain})</span></span>
             <span className="metric-value">{stats.recorded} <span className="metric-total">/ {stats.total}</span></span>
           </div>
 

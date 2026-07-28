@@ -17,6 +17,7 @@ from ..auth import get_current_speaker_with_consent, verify_device, get_current_
 from ..services.naming import generate_canonical_filename
 from ..services.storage import get_raw_path
 from ..services.audio_processor import process_clip_background
+from ..services.clip_deletion import delete_clip_completely
 
 logger = logging.getLogger(__name__)
 
@@ -275,10 +276,31 @@ async def confirm_clip(
             },
         )
 
-    # 1. Update clip status and transcription properties
+    # 1. Claim the clip atomically.
+    #
+    # SELECT ... FOR UPDATE above is a no-op on SQLite, so two concurrent
+    # confirms (a double-tapped Keep) could both pass the status checks and
+    # each increment scenario.use_count, skewing coverage and scenario
+    # balancing. This conditional UPDATE only succeeds for the first caller;
+    # the loser sees zero rows and returns the idempotent response.
+    claim = await db.execute(
+        update(Clip)
+        .where(Clip.clip_id == clip_id, Clip.status == "uploaded")
+        .values(status="confirmed")
+    )
+    if claim.rowcount == 0:
+        await db.rollback()
+        current = (await db.execute(select(Clip).where(Clip.clip_id == clip_id))).scalar()
+        if current and current.status in ("confirmed", "processing", "processed"):
+            return ClipConfirmResponse(clip_id=clip_id, status=current.status, next_task=None)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "CLIP_NOT_CONFIRMABLE", "message": "Clip is no longer confirmable"},
+        )
+
     clip.status = "confirmed"
     clip.prompted = req.prompted
-    
+
     # Resolve scenario to populate provisional transcript (unedited seed phrase)
     task_stmt = select(Task).where(Task.task_id == clip.task_id)
     task_res = await db.execute(task_stmt)
@@ -484,6 +506,45 @@ async def get_my_clips(
         )
 
     return SpeakerClipsResponse(clips=items)
+
+@router.delete("/{clip_id}")
+async def delete_my_clip(
+    clip_id: str,
+    speaker: Speaker = Depends(get_current_speaker_with_consent),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Permanently deletes one of the speaker's own recordings.
+
+    Recordings are kept indefinitely until either the speaker or an admin
+    removes them - this is the speaker-initiated half of that.
+    """
+    stmt = select(Clip).where(Clip.clip_id == clip_id)
+    res = await db.execute(stmt)
+    clip = res.scalar()
+
+    if not clip:
+        # Already gone: deleting twice is not an error.
+        return {"clip_id": clip_id, "deleted": True}
+
+    if clip.speaker_id != speaker.speaker_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "FORBIDDEN", "message": "Not authorized to delete this clip"}
+        )
+
+    try:
+        await delete_clip_completely(db, clip)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        logger.exception("Failed to delete clip %s", clip_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "DELETE_FAILED", "message": "The recording could not be deleted"}
+        )
+
+    return {"clip_id": clip_id, "deleted": True}
 
 @router.get("/{clip_id}/download")
 async def download_my_clip(

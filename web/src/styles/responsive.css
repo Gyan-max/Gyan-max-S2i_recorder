@@ -2476,3 +2476,257 @@ textarea:focus-visible {
     background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   }
 }
+/* ============================================
+   MY RECORDINGS (volunteer's own clips)
+   ============================================ */
+
+/* The recording flow is deliberately narrow; this list matches it rather than
+   stretching to the wide admin width. */
+.narrow-wrapper {
+  max-width: 760px;
+}
+
+.my-recordings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* index.css sets a global .btn { width: 100% }, which stretches this action
+   across the header. Opt out explicitly. */
+.my-recordings-header .btn {
+  flex: none;
+  width: auto;
+}
+
+.my-clip-title {
+  font-size: 1.05rem;
+  font-weight: 650;
+  margin-bottom: 4px;
+  text-transform: capitalize;
+  color: var(--text-primary);
+}
+
+.my-clip-transcript {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--border);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.my-clip-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* index.css sets a global .btn { width: 100% }; these size to their content. */
+.my-clip-actions .btn {
+  width: auto;
+  flex: none;
+}
+
+.audio-load-state {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* Status tones. Paired with a text label, never colour alone, so the state is
+   still readable without colour perception. */
+.status-badge.tone-muted { background: var(--bg-elevated); color: var(--text-muted); }
+.status-badge.tone-confirmed { background: rgba(79, 70, 229, 0.14); color: var(--primary); }
+.status-badge.tone-processing { background: rgba(217, 119, 6, 0.14); color: var(--warning); }
+.status-badge.tone-processed { background: rgba(5, 150, 105, 0.14); color: var(--success); }
+.status-badge.tone-rejected { background: rgba(225, 29, 72, 0.14); color: var(--danger); }
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.alert svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .my-recordings-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .my-clip-actions .btn {
+    flex: 1;
+  }
+}
+
+/* ============================================
+   AUDIO PLAYER (shared: record review, admin
+   review queue, and My Recordings)
+   ============================================ */
+
+.audio-player {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+/* The native element is driven entirely by the custom controls below. */
+.audio-player > audio {
+  display: none;
+}
+
+.audio-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.audio-play-btn {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.25);
+}
+
+.audio-play-btn:hover { transform: scale(1.05); }
+.audio-play-btn:active { transform: scale(0.96); }
+
+.audio-seek {
+  flex: 1 1 auto;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 26px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.audio-seek::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--primary) 0%,
+    var(--primary) var(--audio-progress, 0%),
+    var(--border) var(--audio-progress, 0%),
+    var(--border) 100%
+  );
+}
+
+.audio-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--primary);
+  box-shadow: 0 1px 4px rgba(23, 32, 51, 0.25);
+}
+
+.audio-seek::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.audio-seek::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.audio-seek::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--primary);
+  box-shadow: 0 1px 4px rgba(23, 32, 51, 0.25);
+}
+
+.audio-seek:focus-visible {
+  outline: 3px solid rgba(79, 70, 229, 0.35);
+  outline-offset: 3px;
+}
+
+.audio-player-right-group {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.speed-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.speed-toggle-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.audio-time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .audio-player-controls { gap: 0.5rem; }
+  .audio-play-btn { width: 38px; height: 38px; }
+  .audio-time { font-size: 0.72rem; }
+  .speed-toggle-btn { padding: 0.22rem 0.4rem; font-size: 0.68rem; }
+}
+
+/* Progress summary: "Recordings Saved" links through to the playback page. */
+.metric-link {
+  display: inline-block;
+  margin-top: 2px;
+  color: var(--primary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.metric-link:hover { text-decoration: underline; }
+
+.metric-scope {
+  color: var(--text-muted);
+  font-weight: 500;
+}

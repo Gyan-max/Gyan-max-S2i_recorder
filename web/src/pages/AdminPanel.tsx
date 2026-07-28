@@ -61,6 +61,9 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
   // Surfaced failure message for admin actions.
   const [actionError, setActionError] = useState<string>('');
 
+  // Clip currently being permanently deleted.
+  const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
+
   const headers = { 'Authorization': `Bearer ${adminToken}` };
 
   const handleUnauthorized = () => {
@@ -183,6 +186,43 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
     } catch (e) {
       console.error(`Failed to ${action} clip:`, e);
       setActionError(`Could not ${action} this clip - the server is unreachable.`);
+    }
+  };
+
+  /**
+   * Permanently removes one recording and its audio. Unlike speaker
+   * withdrawal this leaves the speaker profile and their other clips intact.
+   */
+  const handleDeleteClip = async (clip: ClipReviewItem) => {
+    const confirmed = window.confirm(
+      `Permanently delete this recording?\n\n` +
+        `Speaker: ${clip.speaker_id}\nIntent: ${clip.intent}\n\n` +
+        'The audio is removed from the server and the prompt becomes available ' +
+        'to record again. This cannot be undone.'
+    );
+    if (!confirmed) return;
+
+    setDeletingClipId(clip.clip_id);
+    setActionError('');
+    try {
+      const res = await fetch(`${API_BASE}/admin/clips/${clip.clip_id}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (res.ok) {
+        setClips((prev) => prev.filter((c) => c.clip_id !== clip.clip_id));
+        setSelectedClipIds((prev) => prev.filter((id) => id !== clip.clip_id));
+        fetchStats();
+      } else if (res.status === 401) {
+        handleUnauthorized();
+      } else {
+        setActionError(await describeFailure(res, 'Could not delete this recording'));
+      }
+    } catch (e) {
+      console.error('Failed to delete clip:', e);
+      setActionError('Could not delete this recording - the server is unreachable.');
+    } finally {
+      setDeletingClipId(null);
     }
   };
 
@@ -765,6 +805,15 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
                         >
                           <X size={14} />
                           Reject
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => handleDeleteClip(clip)}
+                          disabled={deletingClipId === clip.clip_id}
+                          title="Permanently delete this recording and its audio"
+                        >
+                          <Trash2 size={14} />
+                          {deletingClipId === clip.clip_id ? 'Deleting…' : 'Delete'}
                         </button>
                       </div>
                     </div>
