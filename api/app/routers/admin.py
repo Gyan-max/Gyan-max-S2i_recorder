@@ -6,7 +6,7 @@ import os
 import random
 import zipfile
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Query, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete, update, distinct, case
@@ -19,26 +19,34 @@ from ..schemas import (
     AdminCoverageItem, ClipReviewResponse, ClipReviewItem, ClipReviewActionRequest,
     QRGenerateResponse, QRItem, AssignDomainRequest
 )
-from ..auth import create_admin_token, verify_admin_credentials, get_current_admin
+from ..auth import (
+    create_admin_token, verify_admin_credentials, get_current_admin,
+    check_login_rate_limit, record_failed_login, clear_login_attempts,
+)
 from ..services.storage import get_export_path
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 @router.post("/login", response_model=AdminLoginResponse)
-async def admin_login(req: AdminLoginRequest):
+async def admin_login(req: AdminLoginRequest, request: Request):
     """Authenticates admin credentials and returns a JWT token."""
+    client_ip = request.client.host if request.client else "unknown"
+    check_login_rate_limit(client_ip)
+
     if not verify_admin_credentials(req.username, req.password):
+        record_failed_login(client_ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password"
         )
-    
+
+    clear_login_attempts(client_ip)
     result = create_admin_token(req.username)
     return AdminLoginResponse(token=result["token"], expires_at=result["expires_at"])
 
 @router.get("/stats", response_model=AdminStatsResponse)
 async def get_admin_stats(
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """Retrieves system-wide statistics for the admin dashboard."""
@@ -85,7 +93,7 @@ async def get_admin_stats(
 
 @router.get("/coverage", response_model=AdminCoverageResponse)
 async def get_intent_coverage(
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """Retrieves the intent coverage heatmap statistics."""
@@ -129,7 +137,7 @@ async def get_intent_coverage(
 @router.get("/clips", response_model=ClipReviewResponse)
 async def get_review_queue_clips(
     status_filter: Optional[str] = Query(None, description="Filter clips by status"),
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """Retrieves clips for review, ordering by creation date descending."""
@@ -168,7 +176,7 @@ async def get_review_queue_clips(
 async def review_clip_action(
     clip_id: str,
     req: ClipReviewActionRequest,
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """Allows domain leads to accept, reject, or correct transcripts of clips."""
@@ -202,7 +210,7 @@ async def review_clip_action(
 @router.post("/speakers/{speaker_id}/withdraw")
 async def withdraw_speaker(
     speaker_id: str,
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -265,7 +273,7 @@ async def withdraw_speaker(
             speaker_id=speaker_id,
             clips_deleted=clips_deleted,
             tasks_deleted=tasks_deleted,
-            processed_by=admin,
+            processed_by=admin.get("sub"),
             notes="Speaker voluntary withdrawal request"
         )
         db.add(audit)
@@ -282,7 +290,7 @@ async def withdraw_speaker(
 async def assign_speaker_domain(
     speaker_id: str,
     req: AssignDomainRequest,
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """Assigns a recording domain to a speaker. The speaker will only see tasks from this domain."""
@@ -311,7 +319,7 @@ async def assign_speaker_domain(
 @router.delete("/speakers/{speaker_id}/assign-domain")
 async def remove_speaker_domain_assignment(
     speaker_id: str,
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """Removes the domain assignment from a speaker."""
@@ -333,7 +341,7 @@ async def remove_speaker_domain_assignment(
 @router.get("/speakers/{speaker_id}/assignment")
 async def get_speaker_domain_assignment(
     speaker_id: str,
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """Gets the domain assignment for a speaker."""
@@ -351,7 +359,7 @@ async def get_speaker_domain_assignment(
 
 @router.get("/export")
 async def export_dataset(
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -377,28 +385,43 @@ async def export_dataset(
             detail={"code": "NO_DATA", "message": "No processed clips available for export"}
         )
         
-    # 2. Assign speaker-disjoint splits
-    # Extract unique speakers
-    speakers = list(set(r.Speaker.speaker_id for r in rows))
-    
-    # Shuffle speaker list (reproducible split for tests by setting a fixed seed)
+    # 2. Assign speaker-disjoint splits.
+    # sorted() before shuffling is required for reproducibility: set iteration
+    # order varies between processes because Python salts string hashing, so
+    # seeding the RNG alone is not enough.
+    speakers = sorted({r.Speaker.speaker_id for r in rows})
     random.Random(42).shuffle(speakers)
-    
+
     n_speakers = len(speakers)
-    train_end = int(n_speakers * 0.8)
-    dev_end = train_end + max(1, int(n_speakers * 0.1)) if n_speakers > 1 else train_end
-    
+
+    # Proportional splits break down at small speaker counts, so guarantee a
+    # non-empty train set and only carve out dev/test when there are enough
+    # speakers to keep them disjoint.
+    if n_speakers == 1:
+        train_count, dev_count = 1, 0
+    elif n_speakers == 2:
+        train_count, dev_count = 1, 0  # remaining speaker becomes test
+    elif n_speakers < 10:
+        # One speaker each for dev and test, the rest train.
+        train_count, dev_count = n_speakers - 2, 1
+    else:
+        train_count = max(1, round(n_speakers * 0.8))
+        dev_count = max(1, round(n_speakers * 0.1))
+        # Never let rounding consume every speaker; test needs at least one.
+        if train_count + dev_count >= n_speakers:
+            dev_count = max(1, n_speakers - train_count - 1)
+            train_count = n_speakers - dev_count - 1
+
     speaker_splits = {}
     for idx, spk in enumerate(speakers):
-        if idx < train_end:
+        if idx < train_count:
             speaker_splits[spk] = "train"
-        elif idx < dev_end:
+        elif idx < train_count + dev_count:
             speaker_splits[spk] = "dev"
         else:
             speaker_splits[spk] = "test"
-            
-    # Double check no speaker in multiple splits constraint
-    # (By definition of dictionary partitioning, speaker_splits maps one speaker to exactly one split label)
+
+    # Each speaker maps to exactly one split by construction.
     
     # 3. Create in-memory CSV
     output = io.StringIO()
@@ -452,7 +475,7 @@ async def export_dataset(
 
 @router.get("/export/excel")
 async def export_dataset_excel(
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -691,7 +714,7 @@ async def export_dataset_excel(
 
 @router.get("/export/research-bundle")
 async def export_research_bundle(
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """Download a self-contained, research-ready ZIP archive.
@@ -866,7 +889,7 @@ async def export_research_bundle(
 
 @router.get("/speakers/detailed")
 async def get_speakers_detailed(
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -909,7 +932,7 @@ async def get_speakers_detailed(
 @router.get("/clips/{clip_id}/audio")
 async def get_clip_audio(
     clip_id: str,
-    admin: str = Depends(get_current_admin),
+    admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """

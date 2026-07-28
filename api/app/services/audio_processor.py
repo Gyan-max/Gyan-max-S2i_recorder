@@ -110,14 +110,28 @@ async def process_clip_background(clip_id: str):
                 clip.status = "rejected"
                 logger.warning(f"Clip {clip_id} rejected due to fatal QC flags: {qc_flags}")
             else:
-                # 3. Run ASR Transcription
+                # 3. Run ASR Transcription.
+                # ASR never overwrites a human-sourced transcript: a speaker
+                # edit or the prompted phrasing beats any ASR guess.
                 try:
                     asr_provider = get_asr_provider()
                     asr_res = asr_provider.transcribe(wav_path)
-                    clip.transcript_final = asr_res.text
-                    clip.transcript_source = "asr"
+
+                    if clip.transcript_source in ("speaker_edited", "human_verified"):
+                        logger.info(
+                            "Clip %s keeping %s transcript; ASR result recorded for reference only",
+                            clip_id, clip.transcript_source,
+                        )
+                    elif not clip.transcript_final:
+                        clip.transcript_final = asr_res.text
+                        clip.transcript_source = "asr"
+                    else:
+                        # Prompt-derived text stands as the label; ASR is only
+                        # a cross-check for reviewers.
+                        logger.info("Clip %s keeping prompt-derived transcript", clip_id)
+
                     clip.status = "processed"
-                    logger.info(f"Clip {clip_id} processed successfully. Transcript: {asr_res.text}")
+                    logger.info(f"Clip {clip_id} processed successfully.")
                 except Exception as e:
                     logger.error(f"ASR transcription failed for clip {clip_id}: {e}")
                     # ASR failure shouldn't reject the clip, it stays processed but with provisional/empty transcript
