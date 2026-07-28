@@ -1,9 +1,8 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import event
-import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./s2i_recorder.db")
+from .config import DATABASE_URL
 
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
