@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -9,15 +9,21 @@ from ..schemas import DeviceCreate, DeviceResponse
 router = APIRouter(prefix="/devices", tags=["Devices"])
 
 @router.post("", response_model=DeviceResponse, status_code=status.HTTP_201_CREATED)
-async def register_device(device_in: DeviceCreate, db: AsyncSession = Depends(get_db)):
-    """Registers a new device or returns an existing device record."""
+async def register_device(
+    device_in: DeviceCreate,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    """Registers a new device, or returns the existing record with 200 OK."""
     # Check if device already exists
     stmt = select(Device).where(Device.device_id == device_in.device_id)
     res = await db.execute(stmt)
     existing_device = res.scalar()
 
     if existing_device:
-        # Return existing device (Status 200 OK)
+        # The route-level status_code applies to every return, so this has to
+        # be set explicitly for callers to tell "created" from "already known".
+        response.status_code = status.HTTP_200_OK
         return existing_device
 
     # Create new device
@@ -38,6 +44,7 @@ async def register_device(device_in: DeviceCreate, db: AsyncSession = Depends(ge
         res = await db.execute(stmt)
         existing_device = res.scalar()
         if existing_device:
+            response.status_code = status.HTTP_200_OK
             return existing_device
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
