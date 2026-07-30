@@ -121,7 +121,14 @@ export interface UploadQueueItem {
   clipId: string;
   blob: Blob;
   mimeType: string;
-  token: string;
+  /**
+   * Legacy field from the bearer-token backend. Queued items no longer carry
+   * credentials: a token captured before going offline would very likely have
+   * expired by the time the queue drains, so authFetch attaches a fresh
+   * Firebase ID token at replay instead. Optional only so older queued items
+   * still deserialise.
+   */
+  token?: string;
   deviceId: string;
   /** Required to initialise the clip on the server when the queue drains. */
   taskId: string;

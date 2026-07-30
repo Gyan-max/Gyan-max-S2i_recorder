@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// Deny-all by design.
+//
+// Every read and write goes through the `api` Cloud Function, which uses the
+// Admin SDK and therefore bypasses these rules entirely. That is the whole
+// point: the corpus depends on the server deciding which task a speaker gets,
+// which scenario version balances coverage, what a clip is named, and when
+// scenario.use_count moves. A client that could write Firestore directly could
+// award itself tasks, rename clips, or inflate coverage counters, and no rule
+// language can express those invariants.
+//
+// If you ever open a path here, re-read ARCHITECTURE.md §3 first.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

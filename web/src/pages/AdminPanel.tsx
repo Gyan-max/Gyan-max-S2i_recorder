@@ -8,12 +8,11 @@ import {
 import {
   AdminStatsResponse, AdminCoverageItem, ClipReviewItem
 } from '../types';
-import { API_BASE } from '../config';
+import { authFetch } from '../api';
+import { useAuth } from '../AuthContext';
 import AdminAudioPlayer from '../components/AdminAudioPlayer';
 
 interface AdminPanelProps {
-  adminToken: string;
-  onLogout: () => void;
   initialTab?: 'stats' | 'clips' | 'coverage' | 'speakers' | 'prompts';
 }
 
@@ -36,7 +35,10 @@ interface SpeakerDetailed {
 
 const STAT_TONES = ['primary', 'accent', 'info', 'success', 'danger', 'warning'] as const;
 
-export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' }: AdminPanelProps) {
+export default function AdminPanel({ initialTab = 'stats' }: AdminPanelProps) {
+  // Admin is a claim on the signed-in account, so signing out here is the same
+  // action as anywhere else in the app - there is no separate admin session.
+  const { logOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'stats' | 'clips' | 'coverage' | 'speakers' | 'prompts'>(initialTab);
   const [stats, setStats] = useState<AdminStatsResponse | null>(null);
   const [coverage, setCoverage] = useState<AdminCoverageItem[]>([]);
@@ -64,11 +66,10 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
   // Clip currently being permanently deleted.
   const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
 
-  const headers = { 'Authorization': `Bearer ${adminToken}` };
 
   const handleUnauthorized = () => {
     console.error('Admin token expired or invalid. Logging out.');
-    onLogout();
+    logOut();
   };
 
   /** Extracts a human-readable message from a failed API response. */
@@ -108,7 +109,7 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
 
   const fetchStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/stats`, { headers });
+      const res = await authFetch(`/admin/stats`);
       if (res.ok) setStats(await res.json());
       else if (res.status === 401) handleUnauthorized();
       else setActionError(await describeFailure(res, 'Could not load statistics'));
@@ -120,7 +121,7 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
 
   const fetchCoverage = async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/coverage`, { headers });
+      const res = await authFetch(`/admin/coverage`);
       if (res.ok) {
         const data = await res.json();
         setCoverage(data.coverage);
@@ -133,9 +134,9 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
   const fetchClips = async () => {
     try {
       const url = filterStatus !== 'all' && filterStatus !== 'flagged'
-        ? `${API_BASE}/admin/clips?status_filter=${filterStatus}`
-        : `${API_BASE}/admin/clips`;
-      const res = await fetch(url, { headers });
+        ? `/admin/clips?status_filter=${filterStatus}`
+        : `/admin/clips`;
+      const res = await authFetch(url);
       if (res.ok) {
         const data = await res.json();
         setClips(data.clips);
@@ -149,7 +150,7 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
 
   const fetchSpeakers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/speakers/detailed`, { headers });
+      const res = await authFetch(`/admin/speakers/detailed`);
       if (res.ok) {
         const data = await res.json();
         setSpeakers(data.speakers);
@@ -167,12 +168,9 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
   const handleReviewAction = async (clipId: string, action: 'accept' | 'reject') => {
     setActionError('');
     try {
-      const res = await fetch(`${API_BASE}/admin/clips/${clipId}/review`, {
+      const res = await authFetch(`/admin/clips/${clipId}/review`, {
         method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action })
       });
       if (res.ok) {
@@ -205,9 +203,9 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
     setDeletingClipId(clip.clip_id);
     setActionError('');
     try {
-      const res = await fetch(`${API_BASE}/admin/clips/${clip.clip_id}`, {
+      const res = await authFetch(`/admin/clips/${clip.clip_id}`, {
         method: 'DELETE',
-        headers,
+
       });
       if (res.ok) {
         setClips((prev) => prev.filter((c) => c.clip_id !== clip.clip_id));
@@ -233,12 +231,9 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/admin/clips/${clipId}/review`, {
+      const res = await authFetch(`/admin/clips/${clipId}/review`, {
         method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'edit_transcript', transcript_final: editedTranscriptText })
       });
       if (res.ok) {
@@ -257,9 +252,9 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
 
   const handleAssignPromptToSpeaker = async (speakerId: string, domain: string) => {
     try {
-      const res = await fetch(`${API_BASE}/admin/speakers/${speakerId}/assign-domain`, {
+      const res = await authFetch(`/admin/speakers/${speakerId}/assign-domain`, {
         method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domain })
       });
       if (res.ok) {
@@ -279,9 +274,8 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
 
   const handleRemoveDomainAssignment = async (speakerId: string) => {
     try {
-      const res = await fetch(`${API_BASE}/admin/speakers/${speakerId}/assign-domain`, {
-        method: 'DELETE',
-        headers
+      const res = await authFetch(`/admin/speakers/${speakerId}/assign-domain`, {
+        method: 'DELETE'
       });
       if (res.ok) {
         setAssignedPrompts(prev => {
@@ -312,9 +306,9 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
     try {
       for (const clipId of selectedClipIds) {
         try {
-          const res = await fetch(`${API_BASE}/admin/clips/${clipId}/review`, {
+          const res = await authFetch(`/admin/clips/${clipId}/review`, {
             method: 'POST',
-            headers: { ...headers, 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action })
           });
           if (res.status === 401) {
@@ -346,9 +340,8 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
     }
 
     try {
-      const res = await fetch(`${API_BASE}/admin/speakers/${speakerId}/withdraw`, {
-        method: 'POST',
-        headers
+      const res = await authFetch(`/admin/speakers/${speakerId}/withdraw`, {
+        method: 'POST'
       });
       if (res.ok) {
         alert('Speaker withdrawn successfully');
@@ -368,7 +361,7 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
 
   const downloadExport = async (endpoint: string, filename: string) => {
     try {
-      const res = await fetch(`${API_BASE}${endpoint}`, { headers });
+      const res = await authFetch(endpoint);
       if (res.status === 401) {
         handleUnauthorized();
         return;
@@ -485,7 +478,7 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
               Refresh
             </button>
-            <button className="btn btn-danger" onClick={onLogout}>
+            <button className="btn btn-danger" onClick={logOut}>
               Logout
             </button>
           </div>
@@ -779,7 +772,7 @@ export default function AdminPanel({ adminToken, onLogout, initialTab = 'stats' 
 
                       {clip.filename && (
                         <div style={{ marginBottom: '12px' }}>
-                          <AdminAudioPlayer clipId={clip.clip_id} adminToken={adminToken} />
+                          <AdminAudioPlayer clipId={clip.clip_id} />
                         </div>
                       )}
 

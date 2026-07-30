@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// Deny-all by design. Raw audio is never publicly reachable.
+//
+// Uploads arrive as multipart POSTs to the `api` Cloud Function, which
+// validates ownership and size, then writes to the bucket with the Admin SDK
+// (Admin SDK bypasses these rules). Playback and download are served back
+// through authenticated Function endpoints, so no client ever holds a direct
+// object URL.
+//
+// This also keeps the object path server-chosen: a client that could write
+// storage directly would pick its own filename, and the canonical naming that
+// the dataset manifest depends on would stop being authoritative.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

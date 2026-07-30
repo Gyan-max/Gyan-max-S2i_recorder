@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Mic, Download, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
-import { SpeakerResponse, SpeakerClipItem } from '../types';
+import { Mic, Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { SpeakerClipItem } from '../types';
 import { API_BASE } from '../config';
+import { apiFetch, fetchAudioObjectUrl } from '../api';
+import type { SpeakerProfile } from '../AuthContext';
 import AuthedAudioPlayer from '../components/AuthedAudioPlayer';
 
 interface MyRecordingsPageProps {
-  currentSpeaker: SpeakerResponse | null;
+  profile: SpeakerProfile | null;
 }
 
 /**
@@ -36,28 +38,23 @@ function formatDate(iso: string): string {
     : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export default function MyRecordingsPage({ currentSpeaker }: MyRecordingsPageProps) {
+export default function MyRecordingsPage({ profile }: MyRecordingsPageProps) {
   const [clips, setClips] = useState<SpeakerClipItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
-    if (currentSpeaker) fetchClips();
+    if (profile) fetchClips();
     else setLoading(false);
-  }, [currentSpeaker?.token]);
+  }, [profile?.speaker_id]);
 
   const fetchClips = async () => {
-    if (!currentSpeaker) return;
+    if (!profile) return;
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/clips/my`, {
-        headers: { Authorization: `Bearer ${currentSpeaker.token}` },
-      });
-      if (!res.ok) throw new Error(`Request failed with ${res.status}`);
-      const data = await res.json();
+      const data = await apiFetch('/clips/my');
       setClips(data.clips ?? []);
     } catch (e) {
       console.error('Failed to load recordings', e);
@@ -70,14 +67,10 @@ export default function MyRecordingsPage({ currentSpeaker }: MyRecordingsPagePro
   // The download endpoint needs an Authorization header, so a plain link will
   // not work - fetch the bytes and hand the browser a temporary object URL.
   const handleDownload = async (clip: SpeakerClipItem) => {
-    if (!currentSpeaker) return;
+    if (!profile) return;
     setDownloading(clip.clip_id);
     try {
-      const res = await fetch(`${API_BASE}/clips/${clip.clip_id}/download`, {
-        headers: { Authorization: `Bearer ${currentSpeaker.token}` },
-      });
-      if (!res.ok) throw new Error(`Download failed with ${res.status}`);
-      const url = URL.createObjectURL(await res.blob());
+      const url = await fetchAudioObjectUrl(`/clips/${clip.clip_id}/download`);
       const link = document.createElement('a');
       link.href = url;
       link.download = clip.filename || `${clip.clip_id}.webm`;
@@ -93,36 +86,12 @@ export default function MyRecordingsPage({ currentSpeaker }: MyRecordingsPagePro
     }
   };
 
-  // Deletion is permanent and removes the audio from the server, so it is
-  // confirmed explicitly rather than being a one-tap action.
-  const handleDelete = async (clip: SpeakerClipItem) => {
-    if (!currentSpeaker) return;
-    const label = humanizeIntent(clip.intent);
-    const confirmed = window.confirm(
-      `Delete your “${label}” recording?\n\n` +
-        'This permanently removes the audio from the server. ' +
-        'The prompt becomes available to record again. This cannot be undone.'
-    );
-    if (!confirmed) return;
+  // No delete action here by design: a kept recording is corpus data, and only
+  // an administrator can remove one. The server refuses speaker-initiated
+  // deletes outright (403 ADMIN_ONLY), so offering the button would only ever
+  // produce an error.
 
-    setDeleting(clip.clip_id);
-    setError('');
-    try {
-      const res = await fetch(`${API_BASE}/clips/${clip.clip_id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${currentSpeaker.token}` },
-      });
-      if (!res.ok) throw new Error(`Delete failed with ${res.status}`);
-      setClips((prev) => prev.filter((c) => c.clip_id !== clip.clip_id));
-    } catch (e) {
-      console.error('Delete failed', e);
-      setError('That recording could not be deleted. Please try again.');
-    } finally {
-      setDeleting(null);
-    }
-  };
-
-  if (!currentSpeaker) {
+  if (!profile) {
     return (
       <div className="page-container">
         <div className="content-wrapper narrow-wrapper">
@@ -209,27 +178,16 @@ export default function MyRecordingsPage({ currentSpeaker }: MyRecordingsPagePro
                     <p className="my-clip-transcript">“{clip.transcript_final}”</p>
                   )}
 
-                  <AuthedAudioPlayer
-                    url={`${API_BASE}/clips/${clip.clip_id}/download`}
-                    token={currentSpeaker.token}
-                  />
+                  <AuthedAudioPlayer url={`${API_BASE}/clips/${clip.clip_id}/download`} />
 
                   <div className="my-clip-actions">
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => handleDownload(clip)}
-                      disabled={downloading === clip.clip_id || deleting === clip.clip_id}
+                      disabled={downloading === clip.clip_id}
                     >
                       <Download size={15} />
                       {downloading === clip.clip_id ? 'Preparing…' : 'Download'}
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleDelete(clip)}
-                      disabled={deleting === clip.clip_id || downloading === clip.clip_id}
-                    >
-                      <Trash2 size={15} />
-                      {deleting === clip.clip_id ? 'Deleting…' : 'Delete'}
                     </button>
                   </div>
                 </div>

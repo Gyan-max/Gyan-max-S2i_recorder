@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { BarChart3, CheckCircle, Award, RefreshCw, Sparkles, Layers, ShieldCheck, Mic } from 'lucide-react';
-import { API_BASE } from '../config';
+import { apiFetch } from '../api';
+import type { SpeakerProfile } from '../AuthContext';
 import { getUploadQueue, dequeueUpload } from '../db';
 
 interface ProgressPageProps {
-  currentSpeaker: any;
+  profile: SpeakerProfile | null;
   deviceId: string;
 }
 
-export default function ProgressPage({ currentSpeaker, deviceId }: ProgressPageProps) {
+export default function ProgressPage({ profile, deviceId }: ProgressPageProps) {
   const navigate = useNavigate();
   const [progressData, setProgressData] = useState<any>(null);
   const [selectedDomain, setSelectedDomain] = useState('BNK');
@@ -20,12 +21,12 @@ export default function ProgressPage({ currentSpeaker, deviceId }: ProgressPageP
   const [savedRecordings, setSavedRecordings] = useState<number | null>(null);
 
   useEffect(() => {
-    if (currentSpeaker) {
+    if (profile) {
       fetchProgress();
       checkOfflineQueue();
       fetchSavedRecordings();
     }
-  }, [selectedDomain, currentSpeaker]);
+  }, [selectedDomain, profile?.speaker_id]);
 
   // Automatically sync offline queue when network connectivity is restored
   useEffect(() => {
@@ -58,14 +59,15 @@ export default function ProgressPage({ currentSpeaker, deviceId }: ProgressPageP
         try {
           const formData = new FormData();
           formData.append('file', item.blob, 'audio_record');
-          const res = await fetch(`${API_BASE}/clips/upload?clip_id=${item.clipId}`, {
+          // Queued uploads replay through apiFetch so they carry a current ID
+          // token - the one captured when the clip was queued may have expired
+          // while the device was offline.
+          await apiFetch(`/clips/upload?clip_id=${item.clipId}`, {
             method: 'POST',
-            headers: { 'X-Device-ID': item.deviceId },
-            body: formData
+            formData,
+            deviceId: item.deviceId,
           });
-          if (res.ok) {
-            await dequeueUpload(item.clipId);
-          }
+          await dequeueUpload(item.clipId);
         } catch (e) {
           console.error(e);
         }
@@ -85,13 +87,9 @@ export default function ProgressPage({ currentSpeaker, deviceId }: ProgressPageP
    * authoritative list of everything the speaker has kept.
    */
   const fetchSavedRecordings = async () => {
-    if (!currentSpeaker) return;
+    if (!profile) return;
     try {
-      const res = await fetch(`${API_BASE}/clips/my`, {
-        headers: { 'Authorization': `Bearer ${currentSpeaker.token}` }
-      });
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await apiFetch('/clips/my');
       const kept = (data.clips ?? []).filter((c: any) =>
         ['confirmed', 'processing', 'processed'].includes(c.status)
       );
@@ -102,18 +100,12 @@ export default function ProgressPage({ currentSpeaker, deviceId }: ProgressPageP
   };
 
   const fetchProgress = async () => {
-    if (!currentSpeaker) return;
+    if (!profile) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/session/progress?domain=${selectedDomain}&batch_no=0`, {
-        headers: {
-          'Authorization': `Bearer ${currentSpeaker.token}`,
-          'X-Device-ID': deviceId
-        }
-      });
-      if (res.ok) {
-        setProgressData(await res.json());
-      }
+      setProgressData(
+        await apiFetch(`/session/progress?domain=${selectedDomain}&batch_no=0`, { deviceId })
+      );
     } catch (e) {
       console.error(e);
     } finally {
@@ -146,7 +138,7 @@ export default function ProgressPage({ currentSpeaker, deviceId }: ProgressPageP
 
   const stats = calculateStats();
 
-  if (!currentSpeaker) {
+  if (!profile) {
     return (
       <div className="page-container">
         <div className="content-wrapper">

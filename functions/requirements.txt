@@ -1,0 +1,12 @@
+firebase-functions>=0.4.2
+firebase-admin>=6.5.0
+flask>=3.0.0
+google-cloud-firestore>=2.16.0
+google-cloud-storage>=2.16.0
+# Audio QC. numpy/soundfile mirror the analysis the FastAPI worker did.
+numpy>=1.26.0
+soundfile>=0.12.1
+# Supplies a static ffmpeg binary. The Cloud Functions Python runtime has no
+# system ffmpeg and no way to apt-get one, so the pipeline ships its own.
+imageio-ffmpeg>=0.4.9
+openpyxl>=3.1.0

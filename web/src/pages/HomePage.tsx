@@ -1,49 +1,37 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Mic, RotateCcw, Check, Users, RefreshCw, Headphones, Lock, WifiOff, CheckCircle, Sparkles, ShieldCheck } from 'lucide-react';
+import { Mic, RotateCcw, Check, RefreshCw, Headphones, Lock, WifiOff, CheckCircle, Sparkles, ShieldCheck } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { SpeakerResponse, SpeakerRosterItem, SessionBatchInfo, TaskResponse } from '../types';
+import { SessionBatchInfo, TaskResponse } from '../types';
 import { saveAudioBlob, enqueueUpload, getUploadQueue, dequeueUpload, deleteAudioBlob } from '../db';
-import { API_BASE } from '../config';
+import { authFetch } from '../api';
+import type { SpeakerProfile } from '../AuthContext';
 import AudioPlayer from '../components/AudioPlayer';
 import AudioVisualizer from '../components/AudioVisualizer';
 
 interface HomePageProps {
   deviceId: string;
-  currentSpeaker: SpeakerResponse | null;
-  setCurrentSpeaker: (speaker: SpeakerResponse | null) => void;
-  speakerRoster: SpeakerRosterItem[];
-  fetchSpeakerRoster: (deviceId: string) => void;
+  profile: SpeakerProfile | null;
+  refreshProfile: () => Promise<SpeakerProfile | null>;
   isOnline: boolean;
 }
 
 export default function HomePage({
   deviceId,
-  currentSpeaker,
-  setCurrentSpeaker,
-  speakerRoster,
-  fetchSpeakerRoster,
+  profile,
+  refreshProfile,
   isOnline
 }: HomePageProps) {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const initialDomain = searchParams.get('domain') || 'BNK';
 
-  // Read the saved session synchronously rather than from the currentSpeaker
-  // prop. AppRouter restores that prop in a useEffect, so it is still null
-  // during this first render - initialising from it left returning volunteers
-  // stuck on the onboarding form, where re-registering created a duplicate
-  // speaker and orphaned every recording made under the previous profile.
-  const hasSavedSpeaker = () => {
-    try {
-      return Boolean(localStorage.getItem('active_speaker'));
-    } catch {
-      return false;
-    }
-  };
-
-  const [showOnboarding, setShowOnboarding] = useState(() => !hasSavedSpeaker());
-  const [showSpeakerConfirm, setShowSpeakerConfirm] = useState(() => hasSavedSpeaker());
-  const [showSpeakerRoster, setShowSpeakerRoster] = useState(false);
+  // Identity now comes from Firebase Auth, which resolves before this renders.
+  // A signed-in user either has a speaker profile or needs to create one, so
+  // the old "are you still X?" confirmation and device-roster switcher are
+  // gone: signing out and back in is how you change who you are. This also
+  // removes the duplicate-profile bug those screens used to cause.
+  const currentSpeaker = profile;
+  const showOnboarding = !profile;
 
   // Domain & Session State
   const [selectedDomain, setSelectedDomain] = useState<string>(initialDomain);
@@ -171,12 +159,11 @@ export default function HomePage({
 
           // Offline recordings have no server-side clip yet.
           if (item.needsInit) {
-            const initRes = await fetch(`${API_BASE}/clips/init`, {
+            const initRes = await authFetch(`/clips/init`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'X-Device-ID': item.deviceId,
-                'Authorization': `Bearer ${item.token}`
               },
               body: JSON.stringify({ task_id: item.taskId, mime_type: item.mimeType })
             });
@@ -193,21 +180,19 @@ export default function HomePage({
 
           const formData = new FormData();
           formData.append('file', item.blob, 'audio_record');
-          const uploadRes = await fetch(`${API_BASE}/clips/upload?clip_id=${clipId}`, {
+          const uploadRes = await authFetch(`/clips/upload?clip_id=${clipId}`, {
             method: 'POST',
             headers: {
               'X-Device-ID': item.deviceId,
-              'Authorization': `Bearer ${item.token}`
             },
             body: formData
           });
           if (!uploadRes.ok) continue;
 
-          const confirmRes = await fetch(`${API_BASE}/clips/${clipId}/confirm`, {
+          const confirmRes = await authFetch(`/clips/${clipId}/confirm`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${item.token}`
             },
             body: JSON.stringify({
               transcript_edit: item.transcriptEdit || undefined,
@@ -235,13 +220,13 @@ export default function HomePage({
   };
 
   useEffect(() => {
-    if (currentSpeaker && !showSpeakerConfirm && !showOnboarding) {
+    if (currentSpeaker && !showOnboarding) {
       if (recordingState !== 'idle') {
         resetAudioState();
       }
       fetchSessionBatch(selectedDomain);
     }
-  }, [currentSpeaker, selectedDomain, showSpeakerConfirm, showOnboarding]);
+  }, [currentSpeaker?.speaker_id, selectedDomain, showOnboarding]);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -269,13 +254,14 @@ export default function HomePage({
   }, [recordingState]);
 
   const handleAuthError = (status: number) => {
+    // 401 means the ID token is stale or revoked; 403 means the profile is
+    // missing or withdrawn. Re-reading the profile lets AuthContext decide
+    // whether to show onboarding or bounce to sign-in - this component no
+    // longer owns identity, so it must not clear it locally.
     if (status === 401 || status === 403) {
-      setCurrentSpeaker(null);
-      localStorage.removeItem('active_speaker');
-      setShowOnboarding(true);
-      setShowSpeakerConfirm(false);
       setSessionBatch(null);
       setRecordingState('idle');
+      refreshProfile().catch(() => undefined);
       return true;
     }
     return false;
@@ -284,10 +270,9 @@ export default function HomePage({
   const fetchSessionBatch = async (domain: string) => {
     if (!currentSpeaker) return;
     try {
-      const res = await fetch(`${API_BASE}/session/next?domain=${domain}`, {
+      const res = await authFetch(`/session/next?domain=${domain}`, {
         headers: {
           'X-Device-ID': deviceId,
-          'Authorization': `Bearer ${currentSpeaker.token}`
         }
       });
       if (handleAuthError(res.status)) return;
@@ -330,25 +315,10 @@ export default function HomePage({
     }
   };
 
-  const switchToSpeaker = (speaker: SpeakerRosterItem) => {
-    const speakerResponse: SpeakerResponse = {
-      speaker_id: speaker.speaker_id,
-      name: speaker.name,
-      token: currentSpeaker?.token || '',
-      age_band: speaker.age_band,
-      consent_at: new Date().toISOString()
-    };
-    setCurrentSpeaker(speakerResponse);
-    localStorage.setItem('active_speaker', JSON.stringify(speakerResponse));
-    setShowSpeakerConfirm(false);
-    setShowSpeakerRoster(false);
-    setSessionBatch(null);
-  };
-
   const handleOnboardingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/speakers`, {
+      const res = await authFetch(`/speakers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -362,13 +332,9 @@ export default function HomePage({
       });
       if (handleAuthError(res.status)) return;
       if (res.ok) {
-        const speaker: SpeakerResponse = await res.json();
-        if (fullName) speaker.name = fullName;
-        setCurrentSpeaker(speaker);
-        localStorage.setItem('active_speaker', JSON.stringify(speaker));
-        setShowOnboarding(false);
-        setShowSpeakerConfirm(false);
-        fetchSpeakerRoster(deviceId);
+        // The profile lives in AuthContext, not here. Re-reading it flips
+        // showOnboarding off and reveals the recorder.
+        await refreshProfile();
       } else {
         const errData = await res.json().catch(() => ({}));
         alert(errData.detail?.message || 'Speaker registration failed');
@@ -525,12 +491,11 @@ export default function HomePage({
     }
     setRecordingState('uploading');
     try {
-      const res = await fetch(`${API_BASE}/clips/init`, {
+      const res = await authFetch(`/clips/init`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Device-ID': deviceId,
-          'Authorization': `Bearer ${currentSpeaker.token}`
         },
         body: JSON.stringify({
           task_id: task.task_id,
@@ -563,11 +528,10 @@ export default function HomePage({
       const formData = new FormData();
       formData.append('file', blob, 'audio_record');
 
-      const res = await fetch(`${API_BASE}/clips/upload?clip_id=${clipId}`, {
+      const res = await authFetch(`/clips/upload?clip_id=${clipId}`, {
         method: 'POST',
         headers: {
           'X-Device-ID': deviceId,
-          'Authorization': `Bearer ${currentSpeaker?.token ?? ''}`
         },
         body: formData
       });
@@ -583,7 +547,6 @@ export default function HomePage({
         await saveAudioBlob(clipId, blob);
         await enqueueUpload({
           clipId, blob, mimeType,
-          token: currentSpeaker.token,
           deviceId,
           taskId: task.task_id,
           // Clip row already exists server-side; only upload+confirm remain.
@@ -617,7 +580,6 @@ export default function HomePage({
           clipId: activeClipId,
           blob: pending.blob,
           mimeType: pending.mimeType,
-          token: currentSpeaker.token,
           deviceId,
           taskId: currentTask.task_id,
           needsInit: true,
@@ -656,11 +618,10 @@ export default function HomePage({
     }
 
     try {
-      const res = await fetch(`${API_BASE}/clips/${activeClipId}/confirm`, {
+      const res = await authFetch(`/clips/${activeClipId}/confirm`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentSpeaker.token}`
         },
         body: JSON.stringify({
           transcript_edit: transcriptEdit || undefined,
@@ -710,7 +671,6 @@ export default function HomePage({
             clipId: activeClipId,
             blob: pending.blob,
             mimeType: pending.mimeType,
-            token: currentSpeaker.token,
             deviceId,
             taskId: currentTask.task_id,
             needsInit: false,
@@ -743,10 +703,7 @@ export default function HomePage({
     }
 
     try {
-      const res = await fetch(`${API_BASE}/clips/${activeClipId}/discard`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${currentSpeaker.token}` }
-      });
+      const res = await authFetch(`/clips/${activeClipId}/discard`, { method: 'POST' });
       if (handleAuthError(res.status)) { setIsRedoing(false); return; }
       if (res.ok) {
         const data = await res.json();
@@ -811,54 +768,6 @@ export default function HomePage({
   const currentExamplePos = scenarioTasks.findIndex(t => t.task_id === activeTask?.task_id);
   const allExamples = activeTask?.examples || [];
   const currentExampleText = allExamples[currentExamplePos] || '';
-
-  // If showing speaker roster for switching
-  if (showSpeakerRoster && speakerRoster.length > 0) {
-    return (
-      <div className="page-container">
-        <div className="content-wrapper">
-          <div className="card card-lg glass-card fade-in">
-            <div className="card-header">
-              <h2>Switch Profile</h2>
-              <p>Select a speaker profile to record as</p>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {speakerRoster.map(s => (
-                <button
-                  key={s.speaker_id}
-                  className="btn btn-secondary"
-                  style={{ width: '100%', justifyContent: 'flex-start', gap: '8px' }}
-                  onClick={() => switchToSpeaker(s)}
-                >
-                  <Users size={18} />
-                  <span>{s.name || s.speaker_id}</span>
-                  <span style={{ opacity: 0.6, fontSize: '0.85rem', marginLeft: 'auto' }}>
-                    {s.speaker_id} &middot; {s.gender}, {s.age_band}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div style={{ marginTop: '16px' }}>
-              <button
-                className="btn btn-primary"
-                style={{ width: '100%' }}
-                onClick={() => { setShowSpeakerRoster(false); setShowOnboarding(true); }}
-              >
-                Register New Speaker
-              </button>
-            </div>
-            <button
-              className="btn btn-secondary"
-              style={{ width: '100%', marginTop: '8px' }}
-              onClick={() => setShowSpeakerRoster(false)}
-            >
-              Back
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // If showing onboarding
   if (showOnboarding) {
@@ -989,42 +898,6 @@ export default function HomePage({
   }
 
   // A saved session exists but AppRouter has not finished restoring it yet.
-  // Hold here instead of falling through to the recorder with no speaker.
-  if (showSpeakerConfirm && !currentSpeaker) {
-    return (
-      <main className="page-container onboarding-page">
-        <div className="content-wrapper onboarding-wrapper">
-          <div className="card card-center" role="status">
-            <p>Restoring your profile…</p>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  // If showing speaker confirmation
-  if (showSpeakerConfirm && currentSpeaker) {
-    return (
-      <main className="page-container onboarding-page">
-        <div className="content-wrapper onboarding-wrapper fade-in">
-          <div className="card card-center identity-card glass-card">
-            <Users size={48} className="icon-accent" />
-            <span className="eyebrow">Welcome back</span>
-            <h1>Are you ready to continue?</h1>
-            <p>Confirm that you are recording as <strong>{currentSpeaker.name || currentSpeaker.speaker_id}</strong>.</p>
-            <div className="button-group">
-              <button className="btn btn-primary" onClick={() => setShowSpeakerConfirm(false)}>
-                Yes, continue
-              </button>
-              <button className="btn btn-secondary" onClick={() => setShowSpeakerRoster(true)}>
-                Choose another profile
-              </button>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
 
   // Main recording interface
   return (
@@ -1309,7 +1182,7 @@ export default function HomePage({
           </section>
         )}
 
-        {!sessionBatch && !showOnboarding && !showSpeakerConfirm && (
+        {!sessionBatch && !showOnboarding && (
           <div className="card loading-task" role="status">Loading your next recording task…</div>
         )}
 
